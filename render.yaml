@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: itam-backend
+    runtime: node
+    env: node
+    region: oregon
+    plan: free
+    branch: main
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGO_URI
+        sync: false
+      - key: PORT
+        value: 10000
