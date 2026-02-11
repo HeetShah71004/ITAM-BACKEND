@@ -2,6 +2,8 @@
 import express from "express";
 import cors from "cors";
 import assetRoutes from "../router/asset.routes.js";
+import employeeRoutes from "../router/employee.routes.js";
+import assignmentRoutes from "../router/assignment.routes.js";
 
 const app = express();
 
@@ -11,6 +13,8 @@ app.use(express.json());
 
 // Routes
 app.use("/api/assets", assetRoutes);
+app.use("/api/employees", employeeRoutes);
+app.use("/api/assignments", assignmentRoutes);
 
 // Helper for root path
 app.get("/", (req, res) => {
