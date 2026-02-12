@@ -9,7 +9,19 @@ import { sendSuccess, sendError } from "../utils/responseHandler.js";
 // @desc    Assign an asset to an employee
 // @route   POST /api/assignments/assign
 export const assignAsset = asyncHandler(async (req, res) => {
-    const { assetId, employeeId, assignedBy, notes } = req.body;
+    // Accept both 'asset'/'employee' and 'assetId'/'employeeId' field names
+    const {
+        asset,
+        employee,
+        assetId: assetIdParam,
+        employeeId: employeeIdParam,
+        assignedBy,
+        notes
+    } = req.body;
+
+    // Use whichever format was provided
+    const assetId = asset || assetIdParam;
+    const employeeId = employee || employeeIdParam;
 
     // Validate required fields
     if (!assetId || !employeeId) {
@@ -98,7 +110,11 @@ export const assignAsset = asyncHandler(async (req, res) => {
 // @desc    Return an asset from an employee
 // @route   POST /api/assignments/return
 export const returnAsset = asyncHandler(async (req, res) => {
-    const { assetId, returnCondition, notes, newStatus } = req.body;
+    // Accept both 'asset' and 'assetId' field names
+    const { asset, assetId: assetIdParam, returnCondition, notes, newStatus } = req.body;
+
+    // Use whichever format was provided
+    const assetId = asset || assetIdParam;
 
     // Validate required fields
     if (!assetId) {
