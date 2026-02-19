@@ -9,11 +9,13 @@ import {
     assignLicense,
     revokeLicense,
     getExpiringLicenses,
+    getLicenseCompliance,
 } from "../controllers/license.controller.js";
 
 const router = express.Router();
 
 // ── Static routes (must come before /:id) ────────────────────────────────────
+router.get("/compliance", getLicenseCompliance);
 router.get("/expiring", getExpiringLicenses);
 router.post("/assign", assignLicense);
 router.post("/revoke", revokeLicense);

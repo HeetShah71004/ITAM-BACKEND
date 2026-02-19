@@ -250,3 +250,100 @@ export const getExpiringLicenses = asyncHandler(async (req, res) => {
         200
     );
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// COMPLIANCE
+// ─────────────────────────────────────────────────────────────────────────────
+
+// @desc    Read-only compliance audit report
+// @route   GET /api/licenses/compliance?days=30
+export const getLicenseCompliance = asyncHandler(async (req, res) => {
+    const days = parseInt(req.query.days) || 30;
+
+    const now = new Date();
+    const soonThreshold = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+
+    // Fetch all licenses (no pagination – compliance is a full audit)
+    const all = await SoftwareLicense.find({}).populate(
+        "assignedTo.employee",
+        "employeeId firstName lastName email department"
+    );
+
+    const total = all.length;
+
+    // ── Buckets ───────────────────────────────────────────────────────────────
+
+    // 1. Expired – status is Expired OR expiryDate is in the past
+    const expired = all.filter(
+        (l) =>
+            l.status === "Expired" ||
+            (l.expiryDate && l.expiryDate < now)
+    );
+
+    // 2. Expiring soon – Active, has an expiryDate within the threshold window
+    const expiringSoon = all.filter(
+        (l) =>
+            l.status === "Active" &&
+            l.expiryDate &&
+            l.expiryDate >= now &&
+            l.expiryDate <= soonThreshold
+    );
+
+    // 3. Over-assigned – usedSeats exceeds totalSeats (data integrity violation)
+    const overAssigned = all.filter((l) => l.usedSeats > l.totalSeats);
+
+    // 4. Unassigned – Active license with zero seats in use
+    const unassigned = all.filter(
+        (l) => l.status === "Active" && l.usedSeats === 0
+    );
+
+    // ── Compliance percentage ─────────────────────────────────────────────────
+    // A license is "compliant" when:
+    //   • status is Active
+    //   • not expired
+    //   • usedSeats <= totalSeats
+    const compliantCount = all.filter(
+        (l) =>
+            l.status === "Active" &&
+            !(l.expiryDate && l.expiryDate < now) &&
+            l.usedSeats <= l.totalSeats
+    ).length;
+
+    const compliancePercentage =
+        total === 0 ? 100 : Math.round((compliantCount / total) * 100);
+
+    // ── Summary helper ────────────────────────────────────────────────────────
+    const summarise = (list) =>
+        list.map((l) => ({
+            _id: l._id,
+            softwareName: l.softwareName,
+            licenseKey: l.licenseKey,
+            licenseType: l.licenseType,
+            status: l.status,
+            totalSeats: l.totalSeats,
+            usedSeats: l.usedSeats,
+            expiryDate: l.expiryDate || null,
+            daysUntilExpiry: l.daysUntilExpiry,
+            assignedTo: l.assignedTo,
+        }));
+
+    const report = {
+        generatedAt: now,
+        windowDays: days,
+        summary: {
+            total,
+            compliant: compliantCount,
+            compliancePercentage,
+            expiredCount: expired.length,
+            expiringSoonCount: expiringSoon.length,
+            overAssignedCount: overAssigned.length,
+            unassignedCount: unassigned.length,
+        },
+        expired: summarise(expired),
+        expiringSoon: summarise(expiringSoon),
+        overAssigned: summarise(overAssigned),
+        unassigned: summarise(unassigned),
+    };
+
+    sendSuccess(res, report, "License compliance report generated", 200);
+});
