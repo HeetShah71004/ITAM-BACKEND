@@ -9,22 +9,24 @@ import { sendSuccess, sendError } from "../utils/responseHandler.js";
 // @desc    Assign an asset to an employee
 // @route   POST /api/assignments/assign
 export const assignAsset = asyncHandler(async (req, res) => {
-    // Accept both 'asset'/'employee' and 'assetId'/'employeeId' field names
+    // Accept both 'asset'/'employee', 'assetId'/'employeeId', and '_id' field names
     const {
         asset,
         employee,
         assetId: assetIdParam,
         employeeId: employeeIdParam,
+        _id: employeeMongoIdParam,
         assignedBy,
         notes
     } = req.body;
 
     // Use whichever format was provided
     const assetId = asset || assetIdParam;
-    const employeeId = employee || employeeIdParam;
+    // Support _id, employee (ObjectId), or custom employeeId string (e.g. "EMP007")
+    const employeeIdentifier = employeeMongoIdParam || employee || employeeIdParam;
 
     // Validate required fields
-    if (!assetId || !employeeId) {
+    if (!assetId || !employeeIdentifier) {
         return sendError(res, "Asset ID and Employee ID are required", 400);
     }
 
@@ -50,24 +52,35 @@ export const assignAsset = asyncHandler(async (req, res) => {
         }
 
         // Check if employee exists and is active
-        const employee = await Employee.findById(employeeId).session(session);
-        if (!employee) {
+        // Support both MongoDB _id and custom employeeId string (e.g. "EMP007")
+        let employeeDoc = null;
+        if (mongoose.Types.ObjectId.isValid(employeeIdentifier)) {
+            employeeDoc = await Employee.findById(employeeIdentifier).session(session);
+        }
+        // Fall back to custom employeeId field if not found by _id
+        if (!employeeDoc) {
+            employeeDoc = await Employee.findOne({ employeeId: employeeIdentifier }).session(session);
+        }
+
+        if (!employeeDoc) {
             await session.abortTransaction();
             return sendError(res, "Employee not found", 404);
         }
 
-        if (employee.status !== "Active") {
+        if (employeeDoc.status !== "Active") {
             await session.abortTransaction();
             return sendError(
                 res,
-                `Employee is not active. Current status: ${employee.status}`,
+                `Employee is not active. Current status: ${employeeDoc.status}`,
                 400
             );
         }
 
+        const employeeMongoId = employeeDoc._id;
+
         // Update asset status and assignment
         asset.status = "Assigned";
-        asset.currentAssignedTo = employeeId;
+        asset.currentAssignedTo = employeeMongoId;
         await asset.save({ session });
 
         // Create assignment history record
@@ -75,7 +88,7 @@ export const assignAsset = asyncHandler(async (req, res) => {
             [
                 {
                     asset: assetId,
-                    employee: employeeId,
+                    employee: employeeMongoId,
                     assignedBy: assignedBy || "System",
                     notes: notes || "",
                 },
