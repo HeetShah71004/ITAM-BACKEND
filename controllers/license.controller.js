@@ -1,8 +1,20 @@
 // controllers/license.controller.js
+import mongoose from "mongoose";
 import SoftwareLicense from "../models/SoftwareLicense.js";
 import Employee from "../models/Employee.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import { sendSuccess, sendError } from "../utils/responseHandler.js";
+
+/**
+ * Find an employee by MongoDB _id OR custom employeeId field (e.g. "EMP007").
+ */
+const findEmployeeByIdOrEmployeeId = async (identifier) => {
+    if (mongoose.Types.ObjectId.isValid(identifier)) {
+        const emp = await Employee.findById(identifier);
+        if (emp) return emp;
+    }
+    return Employee.findOne({ employeeId: identifier });
+}; 
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CRUD
@@ -132,21 +144,24 @@ export const assignLicense = asyncHandler(async (req, res) => {
     }
 
     // Validate employee exists and is active
-    const employee = await Employee.findById(employeeId);
-    if (!employee) {
+    // Supports both MongoDB _id and custom employeeId string (e.g. "EMP007")
+    const employeeDoc = await findEmployeeByIdOrEmployeeId(employeeId);
+    if (!employeeDoc) {
         return sendError(res, "Employee not found", 404);
     }
-    if (employee.status !== "Active") {
+    if (employeeDoc.status !== "Active") {
         return sendError(
             res,
-            `Employee is not active. Current status: ${employee.status}`,
+            `Employee is not active. Current status: ${employeeDoc.status}`,
             400
         );
     }
 
+    const employeeMongoId = employeeDoc._id;
+
     // Check employee doesn't already hold a seat for this license
     const alreadyAssigned = license.assignedTo.some(
-        (a) => a.employee.toString() === employeeId
+        (a) => a.employee.toString() === employeeMongoId.toString()
     );
     if (alreadyAssigned) {
         return sendError(
@@ -158,7 +173,7 @@ export const assignLicense = asyncHandler(async (req, res) => {
 
     // Add assignment and increment used seats
     license.assignedTo.push({
-        employee: employeeId,
+        employee: employeeMongoId,
         assignedDate: new Date(),
         assignedBy: assignedBy || "System",
         notes: notes || "",
@@ -192,9 +207,15 @@ export const revokeLicense = asyncHandler(async (req, res) => {
         return sendError(res, "Software license not found", 404);
     }
 
+    // Resolve employee by _id or custom employeeId string (e.g. "EMP007")
+    const employeeDoc = await findEmployeeByIdOrEmployeeId(employeeId);
+    if (!employeeDoc) {
+        return sendError(res, "Employee not found", 404);
+    }
+
     // Find the assignment entry for this employee
     const assignmentIndex = license.assignedTo.findIndex(
-        (a) => a.employee.toString() === employeeId
+        (a) => a.employee.toString() === employeeDoc._id.toString()
     );
 
     if (assignmentIndex === -1) {
