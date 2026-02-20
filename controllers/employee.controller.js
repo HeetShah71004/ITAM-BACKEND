@@ -20,7 +20,7 @@ export const getAllEmployees = asyncHandler(async (req, res) => {
 // @desc    Get employee by ID
 // @route   GET /api/employees/:id
 export const getEmployeeById = asyncHandler(async (req, res) => {
-    const employee = await Employee.findById(req.params.id);
+    const employee = await Employee.findOne({ employeeId: req.params.id });
     if (!employee) {
         return sendError(res, "Employee not found", 404);
     }
@@ -30,10 +30,14 @@ export const getEmployeeById = asyncHandler(async (req, res) => {
 // @desc    Update employee
 // @route   PUT /api/employees/:id
 export const updateEmployee = asyncHandler(async (req, res) => {
-    const employee = await Employee.findByIdAndUpdate(req.params.id, req.body, {
-        new: true,
-        runValidators: true,
-    });
+    const employee = await Employee.findOneAndUpdate(
+        { employeeId: req.params.id },
+        req.body,
+        {
+            new: true,
+            runValidators: true,
+        }
+    );
     if (!employee) {
         return sendError(res, "Employee not found", 404);
     }
@@ -43,7 +47,7 @@ export const updateEmployee = asyncHandler(async (req, res) => {
 // @desc    Delete employee
 // @route   DELETE /api/employees/:id
 export const deleteEmployee = asyncHandler(async (req, res) => {
-    const employee = await Employee.findByIdAndDelete(req.params.id);
+    const employee = await Employee.findOneAndDelete({ employeeId: req.params.id });
     if (!employee) {
         return sendError(res, "Employee not found", 404);
     }
