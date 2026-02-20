@@ -5,6 +5,7 @@ import Employee from "../models/Employee.js";
 import AssignmentHistory from "../models/AssignmentHistory.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import { sendSuccess, sendError } from "../utils/responseHandler.js";
+import { sendEmail, assignmentEmailTemplate, returnEmailTemplate } from "../utils/emailService.js";
 
 // @desc    Assign an asset to an employee
 // @route   POST /api/assignments/assign
@@ -112,6 +113,22 @@ export const assignAsset = asyncHandler(async (req, res) => {
             "Asset assigned successfully",
             201
         );
+
+        // Fire-and-forget assignment confirmation email
+        const emp = populatedAssignment.employee;
+        const ast = populatedAssignment.asset;
+        if (emp?.email) {
+            sendEmail(
+                emp.email,
+                "Asset Assignment Confirmation – ITAM",
+                assignmentEmailTemplate({
+                    employeeName: `${emp.firstName} ${emp.lastName}`,
+                    assetName: ast.name,
+                    assetTag: ast.assetTag,
+                    assignedDate: populatedAssignment.assignedDate,
+                })
+            );
+        }
     } catch (error) {
         await session.abortTransaction();
         throw error;
@@ -193,6 +210,22 @@ export const returnAsset = asyncHandler(async (req, res) => {
             .populate("employee", "employeeId firstName lastName email department");
 
         sendSuccess(res, populatedAssignment, "Asset returned successfully", 200);
+
+        // Fire-and-forget return confirmation email
+        const emp2 = populatedAssignment.employee;
+        const ast2 = populatedAssignment.asset;
+        if (emp2?.email) {
+            sendEmail(
+                emp2.email,
+                "Asset Return Confirmation – ITAM",
+                returnEmailTemplate({
+                    employeeName: `${emp2.firstName} ${emp2.lastName}`,
+                    assetName: ast2.name,
+                    assetTag: ast2.assetTag,
+                    returnedDate: populatedAssignment.returnedDate,
+                })
+            );
+        }
     } catch (error) {
         await session.abortTransaction();
         throw error;
