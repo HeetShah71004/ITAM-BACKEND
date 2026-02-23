@@ -3,64 +3,69 @@ import nodemailer from "nodemailer";
 
 // ---------------------------------------------------------------------------
 // Lazy transporter – created on first send, NOT at module load time.
-// This solves the ESM import-hoisting problem: in ES modules all imports run
-// before any code in the importing file, so module-level transporter creation
-// happens BEFORE dotenv.config() in server.js, leaving env vars undefined.
+// In ES modules, imports run before dotenv.config() in server.js,
+// so transporter must be created lazily to pick up env vars correctly.
 // ---------------------------------------------------------------------------
 let transporter = null;
 
 function getTransporter() {
   if (!transporter) {
+    const service = process.env.EMAIL_SERVICE;
+    const user = process.env.EMAIL_USER;
+    const pass = process.env.EMAIL_PASS;
+
+    if (!user || !pass) {
+      console.error("[Email] EMAIL_USER or EMAIL_PASS is not set in .env");
+    }
+
     transporter = nodemailer.createTransport({
-      host: "smtp.gmail.com",
-      port: 587,
-      secure: false,          // STARTTLS
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-      tls: {
-        rejectUnauthorized: false,
-      },
+      service,          // e.g. "gmail" from EMAIL_SERVICE in .env
+      auth: { user, pass },
+      tls: { rejectUnauthorized: false },
     });
+
+    console.log(`[Email] Transporter initialised (service=${service}, user=${user})`);
   }
   return transporter;
 }
 
 // ---------------------------------------------------------------------------
-// Core send function
-// Fire-and-forget: errors are logged but never re-thrown
+// Core send function – fire-and-forget.
+// Errors are logged but never re-thrown so email failure never crashes the API.
+// Emails are ONLY triggered after a successful DB update (called by controllers
+// after session.commitTransaction()).
 // ---------------------------------------------------------------------------
 export const sendEmail = async (to, subject, html) => {
   try {
+    console.log(`[Email] Attempting to send "${subject}" → ${to}`);
+
     const info = await getTransporter().sendMail({
       from: `"ITAM System" <${process.env.EMAIL_USER}>`,
-      to,
+      to,       // employee.email fetched from DB – never hardcoded
       subject,
       html,
     });
-    console.log(`[Email] Sent to ${to} | Message ID: ${info.messageId}`);
+
+    console.log(`[Email] ✅ Sent to ${to} | Message ID: ${info.messageId}`);
   } catch (error) {
-    console.error(`[Email] Failed to send to ${to}:`);
+    console.error(`[Email] ❌ Failed to send to ${to}`);
     console.error(`        Code   : ${error.code || "unknown"}`);
-    console.error(`        Message: ${error.message}`);
-    // Intentionally NOT re-throwing – email failure must not crash the API
+    console.error(`        Message: ${error.message || "unknown"}`);
+    // NOT re-throwing – email failure must not affect the API response
   }
 };
 
 // ---------------------------------------------------------------------------
-// HTML Templates
+// HTML Email Templates
 // ---------------------------------------------------------------------------
 
 /**
- * Assignment Confirmation Email Template
+ * Assignment Confirmation Email
  * @param {{ employeeName: string, assetName: string, assetTag: string, assignedDate: Date }} data
  */
 export const assignmentEmailTemplate = ({ employeeName, assetName, assetTag, assignedDate }) => {
   const formattedDate = new Date(assignedDate).toLocaleDateString("en-IN", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
+    year: "numeric", month: "long", day: "numeric",
   });
 
   return `
@@ -69,20 +74,19 @@ export const assignmentEmailTemplate = ({ employeeName, assetName, assetTag, ass
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Asset Assignment Confirmation</title>
+  <title>Asset Assigned Successfully</title>
 </head>
 <body style="margin:0;padding:0;background:#f4f6f9;font-family:'Segoe UI',Arial,sans-serif;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f9;padding:40px 0;">
     <tr>
       <td align="center">
-        <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:10px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.08);">
+        <table width="600" cellpadding="0" cellspacing="0"
+               style="background:#ffffff;border-radius:10px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.08);">
 
           <!-- Header -->
           <tr>
             <td style="background:linear-gradient(135deg,#1a73e8,#0d47a1);padding:32px 40px;text-align:center;">
-              <h1 style="color:#ffffff;margin:0;font-size:22px;font-weight:700;letter-spacing:0.5px;">
-                Asset Assigned to You
-              </h1>
+              <h1 style="color:#ffffff;margin:0;font-size:22px;font-weight:700;">Asset Assigned Successfully</h1>
               <p style="color:#bbdefb;margin:8px 0 0;font-size:13px;">IT Asset Management System</p>
             </td>
           </tr>
@@ -90,23 +94,26 @@ export const assignmentEmailTemplate = ({ employeeName, assetName, assetTag, ass
           <!-- Body -->
           <tr>
             <td style="padding:36px 40px;">
-              <p style="font-size:16px;color:#333;margin:0 0 8px;">Hi <strong>${employeeName}</strong>,</p>
+              <p style="font-size:16px;color:#333;margin:0 0 16px;">Hello <strong>${employeeName}</strong>,</p>
               <p style="font-size:15px;color:#555;margin:0 0 28px;line-height:1.6;">
-                An IT asset has been officially assigned to you. Please find the details below and ensure the asset is kept safe and in good condition.
+                The following asset has been assigned to you:
               </p>
 
               <!-- Details Table -->
-              <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e0e7ef;border-radius:8px;overflow:hidden;">
+              <table width="100%" cellpadding="0" cellspacing="0"
+                     style="border:1px solid #e0e7ef;border-radius:8px;overflow:hidden;">
                 <tr style="background:#f0f4ff;">
-                  <td style="padding:14px 20px;font-weight:600;color:#1a73e8;font-size:13px;text-transform:uppercase;letter-spacing:0.5px;width:40%;">Asset Name</td>
+                  <td style="padding:14px 20px;font-weight:600;color:#1a73e8;font-size:13px;text-transform:uppercase;width:40%;">Asset Name</td>
                   <td style="padding:14px 20px;color:#333;font-size:15px;">${assetName}</td>
                 </tr>
                 <tr>
-                  <td style="padding:14px 20px;font-weight:600;color:#1a73e8;font-size:13px;text-transform:uppercase;letter-spacing:0.5px;border-top:1px solid #e0e7ef;">Asset Tag</td>
-                  <td style="padding:14px 20px;color:#333;font-size:15px;border-top:1px solid #e0e7ef;"><code style="background:#f0f4ff;padding:2px 8px;border-radius:4px;">${assetTag}</code></td>
+                  <td style="padding:14px 20px;font-weight:600;color:#1a73e8;font-size:13px;text-transform:uppercase;border-top:1px solid #e0e7ef;">Asset Tag</td>
+                  <td style="padding:14px 20px;color:#333;font-size:15px;border-top:1px solid #e0e7ef;">
+                    <code style="background:#f0f4ff;padding:2px 8px;border-radius:4px;">${assetTag}</code>
+                  </td>
                 </tr>
                 <tr style="background:#f0f4ff;">
-                  <td style="padding:14px 20px;font-weight:600;color:#1a73e8;font-size:13px;text-transform:uppercase;letter-spacing:0.5px;border-top:1px solid #e0e7ef;">Assignment Date</td>
+                  <td style="padding:14px 20px;font-weight:600;color:#1a73e8;font-size:13px;text-transform:uppercase;border-top:1px solid #e0e7ef;">Assigned Date</td>
                   <td style="padding:14px 20px;color:#333;font-size:15px;border-top:1px solid #e0e7ef;">${formattedDate}</td>
                 </tr>
               </table>
@@ -136,14 +143,12 @@ export const assignmentEmailTemplate = ({ employeeName, assetName, assetTag, ass
 };
 
 /**
- * Return Confirmation Email Template
+ * Return Confirmation Email
  * @param {{ employeeName: string, assetName: string, assetTag: string, returnedDate: Date }} data
  */
 export const returnEmailTemplate = ({ employeeName, assetName, assetTag, returnedDate }) => {
   const formattedDate = new Date(returnedDate).toLocaleDateString("en-IN", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
+    year: "numeric", month: "long", day: "numeric",
   });
 
   return `
@@ -152,20 +157,19 @@ export const returnEmailTemplate = ({ employeeName, assetName, assetTag, returne
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Asset Return Confirmation</title>
+  <title>Asset Returned Successfully</title>
 </head>
 <body style="margin:0;padding:0;background:#f4f6f9;font-family:'Segoe UI',Arial,sans-serif;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f9;padding:40px 0;">
     <tr>
       <td align="center">
-        <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:10px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.08);">
+        <table width="600" cellpadding="0" cellspacing="0"
+               style="background:#ffffff;border-radius:10px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.08);">
 
           <!-- Header -->
           <tr>
             <td style="background:linear-gradient(135deg,#2e7d32,#1b5e20);padding:32px 40px;text-align:center;">
-              <h1 style="color:#ffffff;margin:0;font-size:22px;font-weight:700;letter-spacing:0.5px;">
-                Asset Return Confirmed
-              </h1>
+              <h1 style="color:#ffffff;margin:0;font-size:22px;font-weight:700;">Asset Returned Successfully</h1>
               <p style="color:#c8e6c9;margin:8px 0 0;font-size:13px;">IT Asset Management System</p>
             </td>
           </tr>
@@ -173,23 +177,26 @@ export const returnEmailTemplate = ({ employeeName, assetName, assetTag, returne
           <!-- Body -->
           <tr>
             <td style="padding:36px 40px;">
-              <p style="font-size:16px;color:#333;margin:0 0 8px;">Hi <strong>${employeeName}</strong>,</p>
+              <p style="font-size:16px;color:#333;margin:0 0 16px;">Hello <strong>${employeeName}</strong>,</p>
               <p style="font-size:15px;color:#555;margin:0 0 28px;line-height:1.6;">
-                We have successfully recorded the return of the following IT asset. Thank you for returning it promptly.
+                The following asset has been marked as returned:
               </p>
 
               <!-- Details Table -->
-              <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e0e7ef;border-radius:8px;overflow:hidden;">
+              <table width="100%" cellpadding="0" cellspacing="0"
+                     style="border:1px solid #e0e7ef;border-radius:8px;overflow:hidden;">
                 <tr style="background:#f0fff4;">
-                  <td style="padding:14px 20px;font-weight:600;color:#2e7d32;font-size:13px;text-transform:uppercase;letter-spacing:0.5px;width:40%;">Asset Name</td>
+                  <td style="padding:14px 20px;font-weight:600;color:#2e7d32;font-size:13px;text-transform:uppercase;width:40%;">Asset Name</td>
                   <td style="padding:14px 20px;color:#333;font-size:15px;">${assetName}</td>
                 </tr>
                 <tr>
-                  <td style="padding:14px 20px;font-weight:600;color:#2e7d32;font-size:13px;text-transform:uppercase;letter-spacing:0.5px;border-top:1px solid #e0e7ef;">Asset Tag</td>
-                  <td style="padding:14px 20px;color:#333;font-size:15px;border-top:1px solid #e0e7ef;"><code style="background:#f0fff4;padding:2px 8px;border-radius:4px;">${assetTag}</code></td>
+                  <td style="padding:14px 20px;font-weight:600;color:#2e7d32;font-size:13px;text-transform:uppercase;border-top:1px solid #e0e7ef;">Asset Tag</td>
+                  <td style="padding:14px 20px;color:#333;font-size:15px;border-top:1px solid #e0e7ef;">
+                    <code style="background:#f0fff4;padding:2px 8px;border-radius:4px;">${assetTag}</code>
+                  </td>
                 </tr>
                 <tr style="background:#f0fff4;">
-                  <td style="padding:14px 20px;font-weight:600;color:#2e7d32;font-size:13px;text-transform:uppercase;letter-spacing:0.5px;border-top:1px solid #e0e7ef;">Return Date</td>
+                  <td style="padding:14px 20px;font-weight:600;color:#2e7d32;font-size:13px;text-transform:uppercase;border-top:1px solid #e0e7ef;">Return Date</td>
                   <td style="padding:14px 20px;color:#333;font-size:15px;border-top:1px solid #e0e7ef;">${formattedDate}</td>
                 </tr>
               </table>

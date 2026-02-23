@@ -1,6 +1,7 @@
 // server/app.js
 import express from "express";
 import cors from "cors";
+import path from "path";
 import assetRoutes from "../router/asset.routes.js";
 import employeeRoutes from "../router/employee.routes.js";
 import assignmentRoutes from "../router/assignment.routes.js";
@@ -12,6 +13,10 @@ const app = express();
 // Middleware
 app.use(cors());
 app.use(express.json());
+// Serve uploaded images as static files → GET /uploads/assets/<filename>
+// path.resolve ensures correct directory regardless of cwd (important on Render)
+app.use("/uploads", express.static(path.resolve("uploads")));
+
 
 // Routes
 app.use("/api/assets", assetRoutes);
