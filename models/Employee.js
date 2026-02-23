@@ -106,6 +106,11 @@ const employeeSchema = new mongoose.Schema(
       },
       default: "Active",
     },
+    profileImage: {
+      type: String,
+      trim: true,
+      default: null,
+    },
   },
   { timestamps: true }
 );
