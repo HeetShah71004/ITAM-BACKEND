@@ -5,9 +5,6 @@ import Employee from "../models/Employee.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import { sendSuccess, sendError } from "../utils/responseHandler.js";
 
-/**
- * Find an employee by MongoDB _id OR custom employeeId field (e.g. "EMP007").
- */
 const findEmployeeByIdOrEmployeeId = async (identifier) => {
     if (mongoose.Types.ObjectId.isValid(identifier)) {
         const emp = await Employee.findById(identifier);
@@ -15,10 +12,6 @@ const findEmployeeByIdOrEmployeeId = async (identifier) => {
     }
     return Employee.findOne({ employeeId: identifier });
 }; 
-
-// ─────────────────────────────────────────────────────────────────────────────
-// CRUD
-// ─────────────────────────────────────────────────────────────────────────────
 
 // @desc    Create a new software license
 // @route   POST /api/licenses
@@ -63,7 +56,6 @@ export const getLicenseById = asyncHandler(async (req, res) => {
 // @desc    Update a software license
 // @route   PUT /api/licenses/:id
 export const updateLicense = asyncHandler(async (req, res) => {
-    // Prevent direct mutation of seat/assignment arrays via this endpoint
     const { usedSeats, assignedTo, ...allowedUpdates } = req.body;
 
     const license = await SoftwareLicense.findByIdAndUpdate(
@@ -207,7 +199,6 @@ export const revokeLicense = asyncHandler(async (req, res) => {
         return sendError(res, "Software license not found", 404);
     }
 
-    // Resolve employee by _id or custom employeeId string (e.g. "EMP007")
     const employeeDoc = await findEmployeeByIdOrEmployeeId(employeeId);
     if (!employeeDoc) {
         return sendError(res, "Employee not found", 404);

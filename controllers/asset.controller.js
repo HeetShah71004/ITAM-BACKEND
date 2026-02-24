@@ -57,24 +57,17 @@ export const deleteAsset = asyncHandler(async (req, res) => {
 
 // @desc    Upload / replace asset image
 // @route   POST /api/assets/:id/image
-// @body    Option A — multipart/form-data, field: "image"  (file upload)
-//          Option B — application/json, body: { "imageUrl": "<url>" }
 export const uploadAssetImageHandler = asyncHandler(async (req, res) => {
     const asset = await Asset.findById(req.params.id);
     if (!asset) {
         return sendError(res, "Asset not found", 404);
     }
 
-    // Determine the new image source: uploaded file takes priority over a URL string
     let newImageUrl = null;
 
     if (req.file) {
-        // File uploaded via multipart/form-data
-        // In production: req.file.path is the Cloudinary HTTPS URL
-        // In development: req.file.path is the local file path
         newImageUrl = req.file.path.replace(/\\/g, "/");
     } else if (req.body && req.body.imageUrl) {
-        // External URL provided as JSON → upload it to Cloudinary (prod) or disk (dev)
         newImageUrl = await uploadImageFromUrl(req.body.imageUrl.trim(), "assets");
     }
 

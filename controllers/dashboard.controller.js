@@ -3,7 +3,7 @@ import Asset from "../models/Asset.js";
 import Employee from "../models/Employee.js";
 import AssignmentHistory from "../models/AssignmentHistory.js";
 import asyncHandler from "../utils/asyncHandler.js";
-import { sendSuccess, sendError } from "../utils/responseHandler.js";
+import { sendSuccess } from "../utils/responseHandler.js";
 
 // @desc    Get dashboard statistics
 // @route   GET /api/dashboard/stats

@@ -53,12 +53,11 @@ export const assignAsset = asyncHandler(async (req, res) => {
         }
 
         // Check if employee exists and is active
-        // Support both MongoDB _id and custom employeeId string (e.g. "EMP007")
         let employeeDoc = null;
         if (mongoose.Types.ObjectId.isValid(employeeIdentifier)) {
             employeeDoc = await Employee.findById(employeeIdentifier).session(session);
         }
-        // Fall back to custom employeeId field if not found by _id
+
         if (!employeeDoc) {
             employeeDoc = await Employee.findOne({ employeeId: employeeIdentifier }).session(session);
         }
@@ -140,13 +139,10 @@ export const assignAsset = asyncHandler(async (req, res) => {
 // @desc    Return an asset from an employee
 // @route   POST /api/assignments/return
 export const returnAsset = asyncHandler(async (req, res) => {
-    // Accept both 'asset' and 'assetId' field names
     const { asset, assetId: assetIdParam, returnCondition, notes, newStatus } = req.body;
 
-    // Use whichever format was provided
     const assetId = asset || assetIdParam;
 
-    // Validate required fields
     if (!assetId) {
         return sendError(res, "Asset ID is required", 400);
     }
