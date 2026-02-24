@@ -13,8 +13,7 @@ const app = express();
 // Middleware
 app.use(cors());
 app.use(express.json());
-// Serve uploaded images as static files → GET /uploads/assets/<filename>
-// path.resolve ensures correct directory regardless of cwd (important on Render)
+
 app.use("/uploads", express.static(path.resolve("uploads")));
 
 

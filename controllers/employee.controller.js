@@ -5,17 +5,11 @@ import asyncHandler from "../utils/asyncHandler.js";
 import { sendSuccess, sendError } from "../utils/responseHandler.js";
 import { deleteEmployeeImage, uploadImageFromUrl } from "../middleware/upload.middleware.js";
 
-/**
- * Find an employee by either MongoDB _id or custom employeeId field.
- * This lets callers use either format in the :id route param.
- */
 const findEmployeeByIdOrEmployeeId = async (identifier) => {
-    // Try MongoDB _id first if it looks like a valid ObjectId
     if (mongoose.Types.ObjectId.isValid(identifier)) {
         const employee = await Employee.findById(identifier);
         if (employee) return employee;
     }
-    // Fall back to custom employeeId field (e.g. "EMP007")
     return Employee.findOne({ employeeId: identifier });
 };
 
@@ -75,31 +69,24 @@ export const deleteEmployee = asyncHandler(async (req, res) => {
 
 // @desc    Upload / replace employee profile image
 // @route   POST /api/employees/:id/image
-// @body    Option A — multipart/form-data, field: "profileImage"  (file upload)
-//          Option B — application/json, body: { "profileImage": "<url>" }
 export const uploadEmployeeImageHandler = asyncHandler(async (req, res) => {
     const employee = await findEmployeeByIdOrEmployeeId(req.params.id);
     if (!employee) {
         return sendError(res, "Employee not found", 404);
     }
 
-    // Determine the new image source: uploaded file takes priority over a URL string
     let newProfileImage = null;
 
     if (req.file) {
-        // File uploaded via multipart/form-data
-        // In production: req.file.path is the Cloudinary HTTPS URL
-        // In development: req.file.path is the local file path
         newProfileImage = req.file.path.replace(/\\/g, "/");
     } else if (req.body && req.body.profileImage) {
-        // External URL provided as JSON → upload it to Cloudinary (prod) or disk (dev)
         newProfileImage = await uploadImageFromUrl(req.body.profileImage.trim(), "employees");
     }
 
     if (!newProfileImage) {
         return sendError(
             res,
-            "Please provide an image — either upload a file (form-data field: 'profileImage') or send { \"profileImage\": \"<url>\" } as JSON",
+            "Please provide an image !",
             400
         );
     }
