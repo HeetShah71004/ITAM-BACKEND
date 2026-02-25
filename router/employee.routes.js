@@ -12,8 +12,8 @@ import { uploadEmployeeImage } from "../middleware/upload.middleware.js";
 
 const router = express.Router();
 
-router.route("/").post(createEmployee).get(getAllEmployees);
-router.route("/:id").get(getEmployeeById).put(updateEmployee).delete(deleteEmployee);
+router.route("/").post(uploadEmployeeImage, createEmployee).get(getAllEmployees);
+router.route("/:id").get(getEmployeeById).put(uploadEmployeeImage, updateEmployee).delete(deleteEmployee);
 
 // Image upload — multer runs first, then the controller
 router.post("/:id/image", uploadEmployeeImage, uploadEmployeeImageHandler);

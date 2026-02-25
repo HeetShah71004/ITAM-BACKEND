@@ -16,7 +16,17 @@ const findEmployeeByIdOrEmployeeId = async (identifier) => {
 // @desc    Create a new employee
 // @route   POST /api/employees
 export const createEmployee = asyncHandler(async (req, res) => {
-    const employee = await Employee.create(req.body);
+    const data = { ...req.body };
+
+    if (req.file) {
+        // multipart/form-data file upload
+        data.profileImage = req.file.path.replace(/\\/g, "/");
+    } else if (data.profileImage && data.profileImage.startsWith("http")) {
+        // JSON body with a remote URL — download/upload it
+        data.profileImage = await uploadImageFromUrl(data.profileImage.trim(), "employees");
+    }
+
+    const employee = await Employee.create(data);
     sendSuccess(res, employee, "Employee created successfully", 201);
 });
 
@@ -44,9 +54,26 @@ export const updateEmployee = asyncHandler(async (req, res) => {
     if (!existing) {
         return sendError(res, "Employee not found", 404);
     }
+
+    const data = { ...req.body };
+
+    if (req.file) {
+        // multipart/form-data file upload — delete old image first
+        if (existing.profileImage) {
+            await deleteEmployeeImage(existing.profileImage);
+        }
+        data.profileImage = req.file.path.replace(/\\/g, "/");
+    } else if (data.profileImage && data.profileImage.startsWith("http")) {
+        // JSON body with a remote URL — delete old image, then download/upload new one
+        if (existing.profileImage && existing.profileImage !== data.profileImage) {
+            await deleteEmployeeImage(existing.profileImage);
+        }
+        data.profileImage = await uploadImageFromUrl(data.profileImage.trim(), "employees");
+    }
+
     const employee = await Employee.findByIdAndUpdate(
         existing._id,
-        req.body,
+        data,
         { new: true, runValidators: true }
     );
     sendSuccess(res, employee, "Employee updated successfully");

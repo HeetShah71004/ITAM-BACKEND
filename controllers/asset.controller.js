@@ -7,7 +7,17 @@ import { deleteAssetImage, uploadImageFromUrl } from "../middleware/upload.middl
 // @desc    Create a new asset
 // @route   POST /api/assets
 export const createAsset = asyncHandler(async (req, res) => {
-    const asset = await Asset.create(req.body);
+    const data = { ...req.body };
+
+    if (req.file) {
+        // multipart/form-data file upload
+        data.imageUrl = req.file.path.replace(/\\/g, "/");
+    } else if (data.imageUrl && data.imageUrl.startsWith("http")) {
+        // JSON body with a remote URL — download/upload it
+        data.imageUrl = await uploadImageFromUrl(data.imageUrl.trim(), "assets");
+    }
+
+    const asset = await Asset.create(data);
     sendSuccess(res, asset, "Asset created successfully", 201);
 });
 
@@ -31,7 +41,25 @@ export const getAssetById = asyncHandler(async (req, res) => {
 // @desc    Update asset
 // @route   PUT /api/assets/:id
 export const updateAsset = asyncHandler(async (req, res) => {
-    const asset = await Asset.findByIdAndUpdate(req.params.id, req.body, {
+    const data = { ...req.body };
+
+    if (req.file) {
+        // multipart/form-data file upload
+        data.imageUrl = req.file.path.replace(/\\/g, "/");
+    } else if (data.imageUrl && data.imageUrl.startsWith("http")) {
+        // JSON body with a remote URL — download/upload it
+        data.imageUrl = await uploadImageFromUrl(data.imageUrl.trim(), "assets");
+    }
+
+    // Delete old image if a new one is being set
+    if (data.imageUrl) {
+        const existing = await Asset.findById(req.params.id);
+        if (existing && existing.imageUrl && existing.imageUrl !== data.imageUrl) {
+            await deleteAssetImage(existing.imageUrl);
+        }
+    }
+
+    const asset = await Asset.findByIdAndUpdate(req.params.id, data, {
         new: true,
         runValidators: true,
     });
