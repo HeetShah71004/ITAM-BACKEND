@@ -10,5 +10,3 @@ yarn-error.log*
 
 # Local image uploads (Cloudinary is used in production)
 uploads/
-
-IT Asset & License Management System - Version Roadmap.md.pdf
