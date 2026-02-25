@@ -134,6 +134,11 @@ const assetSchema = new mongoose.Schema(
       trim: true,
       default: null,
     },
+    imagePublicId: {
+      type: String,
+      trim: true,
+      default: null,
+    },
   },
   { timestamps: true }
 );

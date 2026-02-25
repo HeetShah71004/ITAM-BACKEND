@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 import Employee from "../models/Employee.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import { sendSuccess, sendError } from "../utils/responseHandler.js";
-import { deleteEmployeeImage, uploadImageFromUrl } from "../middleware/upload.middleware.js";
+import { deleteEmployeeImage } from "../middleware/upload.middleware.js";
 
 const findEmployeeByIdOrEmployeeId = async (identifier) => {
     if (mongoose.Types.ObjectId.isValid(identifier)) {
@@ -13,18 +13,47 @@ const findEmployeeByIdOrEmployeeId = async (identifier) => {
     return Employee.findOne({ employeeId: identifier });
 };
 
+/**
+ * Extract image fields from req.file (Cloudinary or local disk).
+ *
+ * Cloudinary (production):
+ *   req.file.path      → secure_url   (https://res.cloudinary.com/...)
+ *   req.file.filename  → public_id    (itam/employees/employees-xxxx)
+ *
+ * Local disk (development):
+ *   req.file.path      → file path    (uploads/employees/employees-xxxx.jpg)
+ *   req.file.filename  → filename only
+ *
+ * @returns {{ profileImage: string, profileImagePublicId: string }}
+ */
+const extractImageFields = (file) => {
+    const isCloudinary =
+        file.path && file.path.startsWith("https://res.cloudinary.com");
+
+    if (isCloudinary) {
+        return {
+            profileImage: file.path,           // secure_url
+            profileImagePublicId: file.filename, // public_id
+        };
+    }
+
+    // Local disk — store the normalised path; no public_id needed
+    return {
+        profileImage: file.path.replace(/\\/g, "/"),
+        profileImagePublicId: null,
+    };
+};
+
 // @desc    Create a new employee
 // @route   POST /api/employees
 export const createEmployee = asyncHandler(async (req, res) => {
     const data = { ...req.body };
 
     if (req.file) {
-        // multipart/form-data file upload
-        data.profileImage = req.file.path.replace(/\\/g, "/");
-    } else if (data.profileImage && data.profileImage.startsWith("http")) {
-        // JSON body with a remote URL — download/upload it
-        data.profileImage = await uploadImageFromUrl(data.profileImage.trim(), "employees");
+        // multipart/form-data → Multer already uploaded to Cloudinary (prod) or disk (dev)
+        Object.assign(data, extractImageFields(req.file));
     }
+    // If no file, profileImage stays whatever the body sent (or undefined)
 
     const employee = await Employee.create(data);
     sendSuccess(res, employee, "Employee created successfully", 201);
@@ -47,16 +76,6 @@ export const getEmployeeById = asyncHandler(async (req, res) => {
     sendSuccess(res, employee, "Employee details retrieved successfully");
 });
 
-// Helper: returns true if the URL is already stored in our system (Cloudinary or local uploads/)
-const isAlreadyStoredUrl = (url) => {
-    if (!url) return false;
-    // Cloudinary URLs contain 'cloudinary.com'
-    if (url.includes("cloudinary.com")) return true;
-    // Local relative paths (e.g. "uploads/employees/...")
-    if (!url.startsWith("http")) return true;
-    return false;
-};
-
 // @desc    Update employee
 // @route   PUT /api/employees/:id  (accepts _id or employeeId)
 export const updateEmployee = asyncHandler(async (req, res) => {
@@ -68,26 +87,19 @@ export const updateEmployee = asyncHandler(async (req, res) => {
     const data = { ...req.body };
 
     if (req.file) {
-        // multipart/form-data file upload — delete old image first
-        if (existing.profileImage) {
+        // A new file was uploaded — delete the old image first, then set new fields
+        if (existing.profileImagePublicId) {
+            // Production: delete from Cloudinary by public_id
+            await deleteEmployeeImage(existing.profileImagePublicId);
+        } else if (existing.profileImage && !existing.profileImage.startsWith("http")) {
+            // Development: delete local file
             await deleteEmployeeImage(existing.profileImage);
         }
-        data.profileImage = req.file.path.replace(/\\/g, "/");
-    } else if (data.profileImage) {
-        if (isAlreadyStoredUrl(data.profileImage)) {
-            // Already stored in our system — just keep it as-is, no re-upload
-            // If the URL is genuinely different from the existing one, update it directly
-            if (data.profileImage === existing.profileImage) {
-                // Same image — remove from data so we don't overwrite unnecessarily
-                delete data.profileImage;
-            }
-        } else if (data.profileImage.startsWith("http")) {
-            // External/remote URL — download and store it
-            if (existing.profileImage && existing.profileImage !== data.profileImage) {
-                await deleteEmployeeImage(existing.profileImage);
-            }
-            data.profileImage = await uploadImageFromUrl(data.profileImage.trim(), "employees");
-        }
+        Object.assign(data, extractImageFields(req.file));
+    } else {
+        // No new file — remove any image-related keys from body to avoid accidental overwrite
+        delete data.profileImage;
+        delete data.profileImagePublicId;
     }
 
     const employee = await Employee.findByIdAndUpdate(
@@ -106,44 +118,13 @@ export const deleteEmployee = asyncHandler(async (req, res) => {
         return sendError(res, "Employee not found", 404);
     }
     await Employee.findByIdAndDelete(existing._id);
-    // Clean up profile image from disk / Cloudinary
-    if (existing.profileImage) {
+
+    // Clean up image: use public_id (Cloudinary) or path (local)
+    if (existing.profileImagePublicId) {
+        await deleteEmployeeImage(existing.profileImagePublicId);
+    } else if (existing.profileImage && !existing.profileImage.startsWith("http")) {
         await deleteEmployeeImage(existing.profileImage);
     }
+
     sendSuccess(res, null, "Employee deleted successfully");
-});
-
-// @desc    Upload / replace employee profile image
-// @route   POST /api/employees/:id/image
-export const uploadEmployeeImageHandler = asyncHandler(async (req, res) => {
-    const employee = await findEmployeeByIdOrEmployeeId(req.params.id);
-    if (!employee) {
-        return sendError(res, "Employee not found", 404);
-    }
-
-    let newProfileImage = null;
-
-    if (req.file) {
-        newProfileImage = req.file.path.replace(/\\/g, "/");
-    } else if (req.body && req.body.profileImage) {
-        newProfileImage = await uploadImageFromUrl(req.body.profileImage.trim(), "employees");
-    }
-
-    if (!newProfileImage) {
-        return sendError(
-            res,
-            "Please provide an image !",
-            400
-        );
-    }
-
-    // Delete the OLD image before saving the new one
-    if (employee.profileImage && employee.profileImage !== newProfileImage) {
-        await deleteEmployeeImage(employee.profileImage);
-    }
-
-    employee.profileImage = newProfileImage;
-    await employee.save();
-
-    sendSuccess(res, employee, "Employee profile image updated successfully");
 });
