@@ -93,7 +93,7 @@ export const updateEmployee = asyncHandler(async (req, res) => {
     const employee = await Employee.findByIdAndUpdate(
         existing._id,
         data,
-        { new: true, runValidators: true }
+        { new: true, runValidators: true, context: "query" }
     );
     sendSuccess(res, employee, "Employee updated successfully");
 });

@@ -91,7 +91,7 @@ export const updateAsset = asyncHandler(async (req, res) => {
     const asset = await Asset.findByIdAndUpdate(
         existing._id,
         data,
-        { new: true, runValidators: true }
+        { new: true, runValidators: true, context: "query" }
     );
     sendSuccess(res, asset, "Asset updated successfully");
 });
