@@ -23,7 +23,7 @@ export const createEmployee = asyncHandler(async (req, res) => {
 // @desc    Get all employees
 // @route   GET /api/employees
 export const getAllEmployees = asyncHandler(async (req, res) => {
-    const employees = await Employee.find();
+    const employees = await Employee.find().sort({ updatedAt: -1 });
     sendSuccess(res, employees, "Employees retrieved successfully");
 });
 
