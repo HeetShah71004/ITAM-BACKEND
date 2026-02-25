@@ -6,6 +6,7 @@ import {
     getEmployeeById,
     updateEmployee,
     deleteEmployee,
+    uploadEmployeeImageHandler,
 } from "../controllers/employee.controller.js";
 import { uploadEmployeeImage } from "../middleware/upload.middleware.js";
 
@@ -13,6 +14,7 @@ const router = express.Router();
 
 router.route("/").post(uploadEmployeeImage, createEmployee).get(getAllEmployees);
 router.route("/:id").get(getEmployeeById).put(uploadEmployeeImage, updateEmployee).delete(deleteEmployee);
+router.route("/:id/image").post(uploadEmployeeImage, uploadEmployeeImageHandler);
 
 
 
