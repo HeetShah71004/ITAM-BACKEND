@@ -111,11 +111,6 @@ const employeeSchema = new mongoose.Schema(
       trim: true,
       default: null,
     },
-    profileImagePublicId: {
-      type: String,
-      trim: true,
-      default: null,
-    },
   },
   { timestamps: true }
 );
