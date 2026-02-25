@@ -14,7 +14,7 @@ export const createAsset = asyncHandler(async (req, res) => {
 // @desc    Get all assets
 // @route   GET /api/assets
 export const getAllAssets = asyncHandler(async (req, res) => {
-    const assets = await Asset.find().populate("currentAssignedTo", "firstName lastName employeeId");
+    const assets = await Asset.find().sort({ updatedAt: -1 }).populate("currentAssignedTo", "firstName lastName employeeId");
     sendSuccess(res, assets, "Assets retrieved successfully");
 });
 
