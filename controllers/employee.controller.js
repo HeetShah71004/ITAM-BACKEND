@@ -21,7 +21,7 @@ export const createEmployee = asyncHandler(async (req, res) => {
     if (req.file) {
         // multipart/form-data file upload
         data.profileImage = req.file.path.replace(/\\/g, "/");
-    } else if (data.profileImage && typeof data.profileImage === "string" && data.profileImage.startsWith("http")) {
+    } else if (data.profileImage && data.profileImage.startsWith("http")) {
         // JSON body with a remote URL — download/upload it
         data.profileImage = await uploadImageFromUrl(data.profileImage.trim(), "employees");
     }
@@ -63,7 +63,7 @@ export const updateEmployee = asyncHandler(async (req, res) => {
             await deleteEmployeeImage(existing.profileImage);
         }
         data.profileImage = req.file.path.replace(/\\/g, "/");
-    } else if (data.profileImage && typeof data.profileImage === "string" && data.profileImage.startsWith("http")) {
+    } else if (data.profileImage && data.profileImage.startsWith("http")) {
         // JSON body with a remote URL — delete old image, then download/upload new one
         if (existing.profileImage && existing.profileImage !== data.profileImage) {
             await deleteEmployeeImage(existing.profileImage);
