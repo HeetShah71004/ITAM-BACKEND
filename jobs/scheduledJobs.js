@@ -120,6 +120,7 @@ export const checkExpiringWarranties = async () => {
         const allItems = assets.map((asset) => {
             const msLeft = new Date(asset.warrantyExpiry) - now;
             const daysLeft = Math.ceil(msLeft / (1000 * 60 * 60 * 24));
+            
             return {
                 assetName: asset.name,
                 assetTag: asset.assetTag,
