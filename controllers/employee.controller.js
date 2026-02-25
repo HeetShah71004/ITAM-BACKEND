@@ -47,6 +47,16 @@ export const getEmployeeById = asyncHandler(async (req, res) => {
     sendSuccess(res, employee, "Employee details retrieved successfully");
 });
 
+// Helper: returns true if the URL is already stored in our system (Cloudinary or local uploads/)
+const isAlreadyStoredUrl = (url) => {
+    if (!url) return false;
+    // Cloudinary URLs contain 'cloudinary.com'
+    if (url.includes("cloudinary.com")) return true;
+    // Local relative paths (e.g. "uploads/employees/...")
+    if (!url.startsWith("http")) return true;
+    return false;
+};
+
 // @desc    Update employee
 // @route   PUT /api/employees/:id  (accepts _id or employeeId)
 export const updateEmployee = asyncHandler(async (req, res) => {
@@ -63,12 +73,21 @@ export const updateEmployee = asyncHandler(async (req, res) => {
             await deleteEmployeeImage(existing.profileImage);
         }
         data.profileImage = req.file.path.replace(/\\/g, "/");
-    } else if (data.profileImage && data.profileImage.startsWith("http")) {
-        // JSON body with a remote URL — delete old image, then download/upload new one
-        if (existing.profileImage && existing.profileImage !== data.profileImage) {
-            await deleteEmployeeImage(existing.profileImage);
+    } else if (data.profileImage) {
+        if (isAlreadyStoredUrl(data.profileImage)) {
+            // Already stored in our system — just keep it as-is, no re-upload
+            // If the URL is genuinely different from the existing one, update it directly
+            if (data.profileImage === existing.profileImage) {
+                // Same image — remove from data so we don't overwrite unnecessarily
+                delete data.profileImage;
+            }
+        } else if (data.profileImage.startsWith("http")) {
+            // External/remote URL — download and store it
+            if (existing.profileImage && existing.profileImage !== data.profileImage) {
+                await deleteEmployeeImage(existing.profileImage);
+            }
+            data.profileImage = await uploadImageFromUrl(data.profileImage.trim(), "employees");
         }
-        data.profileImage = await uploadImageFromUrl(data.profileImage.trim(), "employees");
     }
 
     const employee = await Employee.findByIdAndUpdate(

@@ -1,8 +1,26 @@
 // controllers/asset.controller.js
+import mongoose from "mongoose";
 import Asset from "../models/Asset.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import { sendSuccess, sendError } from "../utils/responseHandler.js";
 import { deleteAssetImage, uploadImageFromUrl } from "../middleware/upload.middleware.js";
+
+// Helper: find asset by MongoDB _id OR custom assetTag (e.g. "AST001")
+const findAssetByIdOrAssetTag = async (identifier) => {
+    if (mongoose.Types.ObjectId.isValid(identifier)) {
+        const asset = await Asset.findById(identifier);
+        if (asset) return asset;
+    }
+    return Asset.findOne({ assetTag: identifier.toUpperCase() });
+};
+
+// Helper: returns true if the URL is already stored in our system (Cloudinary or local uploads/)
+const isAlreadyStoredUrl = (url) => {
+    if (!url) return false;
+    if (url.includes("cloudinary.com")) return true;
+    if (!url.startsWith("http")) return true;
+    return false;
+};
 
 // @desc    Create a new asset
 // @route   POST /api/assets
@@ -29,64 +47,74 @@ export const getAllAssets = asyncHandler(async (req, res) => {
 });
 
 // @desc    Get asset by ID
-// @route   GET /api/assets/:id
+// @route   GET /api/assets/:id  (accepts _id or assetTag)
 export const getAssetById = asyncHandler(async (req, res) => {
-    const asset = await Asset.findById(req.params.id).populate("currentAssignedTo", "firstName lastName employeeId");
+    const asset = await findAssetByIdOrAssetTag(req.params.id);
     if (!asset) {
         return sendError(res, "Asset not found", 404);
     }
+    await asset.populate("currentAssignedTo", "firstName lastName employeeId");
     sendSuccess(res, asset, "Asset details retrieved successfully");
 });
 
 // @desc    Update asset
-// @route   PUT /api/assets/:id
+// @route   PUT /api/assets/:id  (accepts _id or assetTag)
 export const updateAsset = asyncHandler(async (req, res) => {
+    const existing = await findAssetByIdOrAssetTag(req.params.id);
+    if (!existing) {
+        return sendError(res, "Asset not found", 404);
+    }
+
     const data = { ...req.body };
 
     if (req.file) {
-        // multipart/form-data file upload
-        data.imageUrl = req.file.path.replace(/\\/g, "/");
-    } else if (data.imageUrl && data.imageUrl.startsWith("http")) {
-        // JSON body with a remote URL — download/upload it
-        data.imageUrl = await uploadImageFromUrl(data.imageUrl.trim(), "assets");
-    }
-
-    // Delete old image if a new one is being set
-    if (data.imageUrl) {
-        const existing = await Asset.findById(req.params.id);
-        if (existing && existing.imageUrl && existing.imageUrl !== data.imageUrl) {
+        // multipart/form-data file upload — delete old image first
+        if (existing.imageUrl) {
             await deleteAssetImage(existing.imageUrl);
+        }
+        data.imageUrl = req.file.path.replace(/\\/g, "/");
+    } else if (data.imageUrl) {
+        if (isAlreadyStoredUrl(data.imageUrl)) {
+            // Already stored in our system — keep as-is, no re-upload
+            if (data.imageUrl === existing.imageUrl) {
+                delete data.imageUrl;
+            }
+        } else if (data.imageUrl.startsWith("http")) {
+            // External/remote URL — download and store it
+            if (existing.imageUrl && existing.imageUrl !== data.imageUrl) {
+                await deleteAssetImage(existing.imageUrl);
+            }
+            data.imageUrl = await uploadImageFromUrl(data.imageUrl.trim(), "assets");
         }
     }
 
-    const asset = await Asset.findByIdAndUpdate(req.params.id, data, {
-        new: true,
-        runValidators: true,
-    });
-    if (!asset) {
-        return sendError(res, "Asset not found", 404);
-    }
+    const asset = await Asset.findByIdAndUpdate(
+        existing._id,
+        data,
+        { new: true, runValidators: true }
+    );
     sendSuccess(res, asset, "Asset updated successfully");
 });
 
 // @desc    Delete asset (also removes associated image)
-// @route   DELETE /api/assets/:id
+// @route   DELETE /api/assets/:id  (accepts _id or assetTag)
 export const deleteAsset = asyncHandler(async (req, res) => {
-    const asset = await Asset.findByIdAndDelete(req.params.id);
-    if (!asset) {
+    const existing = await findAssetByIdOrAssetTag(req.params.id);
+    if (!existing) {
         return sendError(res, "Asset not found", 404);
     }
+    await Asset.findByIdAndDelete(existing._id);
     // Clean up image from disk / Cloudinary
-    if (asset.imageUrl) {
-        await deleteAssetImage(asset.imageUrl);
+    if (existing.imageUrl) {
+        await deleteAssetImage(existing.imageUrl);
     }
     sendSuccess(res, null, "Asset deleted successfully");
 });
 
 // @desc    Upload / replace asset image
-// @route   POST /api/assets/:id/image
+// @route   POST /api/assets/:id/image  (accepts _id or assetTag)
 export const uploadAssetImageHandler = asyncHandler(async (req, res) => {
-    const asset = await Asset.findById(req.params.id);
+    const asset = await findAssetByIdOrAssetTag(req.params.id);
     if (!asset) {
         return sendError(res, "Asset not found", 404);
     }
