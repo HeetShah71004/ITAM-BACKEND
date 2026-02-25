@@ -33,9 +33,6 @@ const sendWarrantyAlert = async (items, windowLabel, adminEmail) => {
     console.log(`[Scheduler] ✅ Warranty ${windowLabel}-day alert sent → ${adminEmail} (${items.length} asset(s))`);
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Helper – resolve the admin recipient address
-// ─────────────────────────────────────────────────────────────────────────────
 const getAdminEmail = () =>
     process.env.ADMIN_EMAIL || process.env.EMAIL_USER;
 
@@ -154,6 +151,7 @@ export const checkExpiringWarranties = async () => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Register all cron jobs – call this once after DB connects
+
 // Schedule: every day at 05:00 PM (server local time)
 // ─────────────────────────────────────────────────────────────────────────────
 export const initScheduledJobs = () => {
