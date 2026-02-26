@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 import Asset from "../models/Asset.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import { sendSuccess, sendError } from "../utils/responseHandler.js";
-import { deleteAssetImage, uploadImageFromUrl } from "../middleware/upload.middleware.js";
+import { deleteAssetImage } from "../middleware/upload.middleware.js";
 
 // Helper: find asset by MongoDB _id OR custom assetTag (e.g. "AST001")
 const findAssetByIdOrAssetTag = async (identifier) => {
@@ -14,13 +14,6 @@ const findAssetByIdOrAssetTag = async (identifier) => {
     return Asset.findOne({ assetTag: identifier.toUpperCase() });
 };
 
-// Helper: returns true if the URL is already stored in our system (Cloudinary or local uploads/)
-const isAlreadyStoredUrl = (url) => {
-    if (!url) return false;
-    if (url.includes("cloudinary.com")) return true;
-    if (!url.startsWith("http")) return true;
-    return false;
-};
 
 // @desc    Create a new asset
 // @route   POST /api/assets
@@ -28,12 +21,10 @@ export const createAsset = asyncHandler(async (req, res) => {
     const data = { ...req.body };
 
     if (req.file) {
-        // multipart/form-data file upload
+        // multipart/form-data file upload (dev: local path, prod: Cloudinary secure_url)
         data.imageUrl = req.file.path.replace(/\\/g, "/");
-    } else if (data.imageUrl && data.imageUrl.startsWith("http")) {
-        // JSON body with a remote URL — download/upload it
-        data.imageUrl = await uploadImageFromUrl(data.imageUrl.trim(), "assets");
     }
+    // If no file provided, imageUrl is simply omitted (stays null/undefined in DB)
 
     const asset = await Asset.create(data);
     sendSuccess(res, asset, "Asset created successfully", 201);
@@ -73,19 +64,9 @@ export const updateAsset = asyncHandler(async (req, res) => {
             await deleteAssetImage(existing.imageUrl);
         }
         data.imageUrl = req.file.path.replace(/\\/g, "/");
-    } else if (data.imageUrl) {
-        if (isAlreadyStoredUrl(data.imageUrl)) {
-            // Already stored in our system — keep as-is, no re-upload
-            if (data.imageUrl === existing.imageUrl) {
-                delete data.imageUrl;
-            }
-        } else if (data.imageUrl.startsWith("http")) {
-            // External/remote URL — download and store it
-            if (existing.imageUrl && existing.imageUrl !== data.imageUrl) {
-                await deleteAssetImage(existing.imageUrl);
-            }
-            data.imageUrl = await uploadImageFromUrl(data.imageUrl.trim(), "assets");
-        }
+    } else {
+        // No new file uploaded — preserve the existing imageUrl as-is
+        delete data.imageUrl;
     }
 
     const asset = await Asset.findByIdAndUpdate(
@@ -111,37 +92,3 @@ export const deleteAsset = asyncHandler(async (req, res) => {
     sendSuccess(res, null, "Asset deleted successfully");
 });
 
-// @desc    Upload / replace asset image
-// @route   POST /api/assets/:id/image  (accepts _id or assetTag)
-export const uploadAssetImageHandler = asyncHandler(async (req, res) => {
-    const asset = await findAssetByIdOrAssetTag(req.params.id);
-    if (!asset) {
-        return sendError(res, "Asset not found", 404);
-    }
-
-    let newImageUrl = null;
-
-    if (req.file) {
-        newImageUrl = req.file.path.replace(/\\/g, "/");
-    } else if (req.body && req.body.imageUrl) {
-        newImageUrl = await uploadImageFromUrl(req.body.imageUrl.trim(), "assets");
-    }
-
-    if (!newImageUrl) {
-        return sendError(
-            res,
-            "Please provide an image — either upload a file (form-data field: 'image') or send { \"imageUrl\": \"<url>\" } as JSON",
-            400
-        );
-    }
-
-    // Delete the OLD image before saving the new one
-    if (asset.imageUrl && asset.imageUrl !== newImageUrl) {
-        await deleteAssetImage(asset.imageUrl);
-    }
-
-    asset.imageUrl = newImageUrl;
-    await asset.save();
-
-    sendSuccess(res, asset, "Asset image updated successfully");
-});

@@ -6,16 +6,14 @@ import {
     getAssetById,
     updateAsset,
     deleteAsset,
-    uploadAssetImageHandler,
 } from "../controllers/asset.controller.js";
 import { uploadAssetImage } from "../middleware/upload.middleware.js";
 
 const router = express.Router();
 
+// Image upload is handled directly inside create/update via multer middleware.
+// Field name expected by multer: "image"
 router.route("/").post(uploadAssetImage, createAsset).get(getAllAssets);
 router.route("/:id").get(getAssetById).put(uploadAssetImage, updateAsset).delete(deleteAsset);
-router.route("/:id/image").post(uploadAssetImage, uploadAssetImageHandler);
-
-
 
 export default router;
