@@ -13,6 +13,16 @@ const findEmployeeByIdOrEmployeeId = async (identifier) => {
     return Employee.findOne({ employeeId: identifier });
 };
 
+// Helper: returns true if the URL is already stored in our system (Cloudinary or local uploads/)
+const isAlreadyStoredUrl = (url) => {
+    if (!url) return false;
+    // Cloudinary URLs start with "https://res.cloudinary.com/"
+    if (url.startsWith("https://res.cloudinary.com/")) return true;
+    // Local relative paths (e.g. "uploads/employees/...")
+    if (!url.startsWith("http")) return true;
+    return false;
+};
+
 // @desc    Create a new employee
 // @route   POST /api/employees
 export const createEmployee = asyncHandler(async (req, res) => {
@@ -21,7 +31,7 @@ export const createEmployee = asyncHandler(async (req, res) => {
     if (req.file) {
         // multipart/form-data file upload
         data.profileImage = req.file.path.replace(/\\/g, "/");
-    } else if (data.profileImage && data.profileImage.startsWith("http")) {
+    } else if (data.profileImage && data.profileImage.startsWith("http") && !isAlreadyStoredUrl(data.profileImage)) {
         // JSON body with a remote URL — download/upload it
         data.profileImage = await uploadImageFromUrl(data.profileImage.trim(), "employees");
     }
@@ -46,16 +56,6 @@ export const getEmployeeById = asyncHandler(async (req, res) => {
     }
     sendSuccess(res, employee, "Employee details retrieved successfully");
 });
-
-// Helper: returns true if the URL is already stored in our system (Cloudinary or local uploads/)
-const isAlreadyStoredUrl = (url) => {
-    if (!url) return false;
-    // Cloudinary URLs contain 'cloudinary.com'
-    if (url.includes("cloudinary.com")) return true;
-    // Local relative paths (e.g. "uploads/employees/...")
-    if (!url.startsWith("http")) return true;
-    return false;
-};
 
 // @desc    Update employee
 // @route   PUT /api/employees/:id  (accepts _id or employeeId)

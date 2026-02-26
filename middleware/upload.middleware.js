@@ -61,21 +61,36 @@ const createUploader = (subfolder, fieldName) => {
         }
     };
 
+    // Accept both "<fieldName>" and "<fieldName>File" to handle mismatched frontend field names
     const multerInstance = multer({
         storage,
         fileFilter,
         limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
-    }).single(fieldName);
+    }).fields([
+        { name: fieldName, maxCount: 1 },
+        { name: `${fieldName}File`, maxCount: 1 },
+    ]);
 
     /**
      * Conditional wrapper:
      * - multipart/form-data → run Multer (file upload)
      * - Otherwise          → skip Multer (JSON URL mode, req.body untouched)
+     *
+     * After Multer runs, req.files is normalised back to req.file so that
+     * all downstream controllers can keep using req.file unchanged.
      */
     const middleware = (req, res, next) => {
         const contentType = req.headers["content-type"] || "";
         if (contentType.includes("multipart/form-data")) {
-            multerInstance(req, res, next);
+            multerInstance(req, res, (err) => {
+                if (err) return next(err);
+                // Normalize: pick the uploaded file from either accepted field name
+                if (req.files) {
+                    const file = (req.files[fieldName] || req.files[`${fieldName}File`] || [])[0];
+                    if (file) req.file = file;
+                }
+                next();
+            });
         } else {
             next();
         }
@@ -92,7 +107,15 @@ const createUploader = (subfolder, fieldName) => {
         if (!identifier) return;
         try {
             if (IS_PROD) {
-                await cloudinary.uploader.destroy(identifier);
+                let publicId = identifier;
+                // If a full Cloudinary URL was stored, extract the public_id from it.
+                // Use a greedy match so dots inside the public_id are captured correctly.
+                // URL format: https://res.cloudinary.com/{cloud}/{type}/upload/{version}/public_id.ext
+                if (identifier.startsWith("https://res.cloudinary.com/")) {
+                    const match = identifier.match(/\/upload\/(?:v\d+\/)?(.+)\.[a-z0-9]+$/i);
+                    if (match) publicId = match[1];
+                }
+                await cloudinary.uploader.destroy(publicId);
             } else {
                 const localPath = path.resolve(identifier);
                 if (fs.existsSync(localPath)) {
