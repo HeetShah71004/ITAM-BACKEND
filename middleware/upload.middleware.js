@@ -10,6 +10,17 @@ import cloudinary from "../config/cloudinary.js";
 const IS_PROD = process.env.NODE_ENV === "production";
 
 /**
+ * Extract a Cloudinary public_id from a full secure URL.
+ * e.g. "https://res.cloudinary.com/demo/image/upload/v123456/itam/assets/abc.jpg"
+ *   →  "itam/assets/abc"
+ * If identifier is already a public_id (no "http"), it is returned as-is.
+ */
+const extractPublicId = (url) => {
+    const match = url.match(/\/upload\/(?:v\d+\/)?(.+?)(?:\.[a-z]+)?$/i);
+    return match ? match[1] : null;
+};
+
+/**
  * Build a multer instance that:
  *   - In PRODUCTION  → streams directly to Cloudinary (folder: "itam/<subfolder>")
  *   - In DEVELOPMENT → saves to disk under uploads/<subfolder>/
@@ -92,7 +103,14 @@ const createUploader = (subfolder, fieldName) => {
         if (!identifier) return;
         try {
             if (IS_PROD) {
-                await cloudinary.uploader.destroy(identifier);
+                // identifier may be a full Cloudinary URL or already a public_id
+                const publicId = identifier.startsWith("http")
+                    ? extractPublicId(identifier)
+                    : identifier;
+                if (publicId) {
+                    await cloudinary.uploader.destroy(publicId);
+                    console.log(`[upload] Deleted Cloudinary image: ${publicId}`);
+                }
             } else {
                 const localPath = path.resolve(identifier);
                 if (fs.existsSync(localPath)) {
