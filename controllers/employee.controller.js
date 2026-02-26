@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 import Employee from "../models/Employee.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import { sendSuccess, sendError } from "../utils/responseHandler.js";
-import { deleteEmployeeImage, uploadFileToCloudinary } from "../middleware/upload.middleware.js";
+import { deleteEmployeeImage, uploadImageFromUrl } from "../middleware/upload.middleware.js";
 
 const findEmployeeByIdOrEmployeeId = async (identifier) => {
     if (mongoose.Types.ObjectId.isValid(identifier)) {
@@ -19,8 +19,11 @@ export const createEmployee = asyncHandler(async (req, res) => {
     const data = { ...req.body };
 
     if (req.file) {
-        // Upload file to Cloudinary — store only filename+extension
-        data.profileImage = await uploadFileToCloudinary(req.file.path, "employees", req.file.originalname);
+        // multipart/form-data file upload
+        data.profileImage = req.file.path.replace(/\\/g, "/");
+    } else if (data.profileImage && data.profileImage.startsWith("http")) {
+        // JSON body with a remote URL — download/upload it
+        data.profileImage = await uploadImageFromUrl(data.profileImage.trim(), "employees");
     }
 
     const employee = await Employee.create(data);
@@ -65,11 +68,11 @@ export const updateEmployee = asyncHandler(async (req, res) => {
     const data = { ...req.body };
 
     if (req.file) {
-        // Upload new file to Cloudinary — delete old image first
+        // multipart/form-data file upload — delete old image first
         if (existing.profileImage) {
             await deleteEmployeeImage(existing.profileImage);
         }
-        data.profileImage = await uploadFileToCloudinary(req.file.path, "employees", req.file.originalname);
+        data.profileImage = req.file.path.replace(/\\/g, "/");
     } else if (data.profileImage) {
         if (isAlreadyStoredUrl(data.profileImage)) {
             // Already stored in our system — just keep it as-is, no re-upload
@@ -121,7 +124,7 @@ export const uploadEmployeeImageHandler = asyncHandler(async (req, res) => {
     let newProfileImage = null;
 
     if (req.file) {
-        newProfileImage = await uploadFileToCloudinary(req.file.path, "employees", req.file.originalname);
+        newProfileImage = req.file.path.replace(/\\/g, "/");
     } else if (req.body && req.body.profileImage) {
         newProfileImage = await uploadImageFromUrl(req.body.profileImage.trim(), "employees");
     }
