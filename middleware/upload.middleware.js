@@ -140,6 +140,28 @@ export const uploadEmployeeImage = employeeUploader.middleware;
 /** Delete an employee profile image by its stored path / public_id */
 export const deleteEmployeeImage = employeeUploader.deleteImage;
 
+// ── Upload-file-to-Cloudinary helper ─────────────────────────────────────────
+/**
+ * Upload a local file (req.file.path) to Cloudinary and return the
+ * ORIGINAL filename the user uploaded (e.g. "laptop.jpg"), NOT the
+ * Cloudinary-generated name.
+ *
+ * @param {string} filePath     - Absolute/relative path to the local temp file
+ * @param {string} subfolder    - e.g. "assets" or "employees"
+ * @param {string} originalName - req.file.originalname (the user's actual filename)
+ * @returns {Promise<string>}   - e.g. "laptop.jpg"
+ */
+export const uploadFileToCloudinary = async (filePath, subfolder = "assets", originalName) => {
+    await cloudinary.uploader.upload(filePath, {
+        folder: `itam/${subfolder}`,
+        transformation: [{ quality: "auto", fetch_format: "auto" }],
+    });
+    // Clean up the local temp file after a successful upload
+    try { fs.unlinkSync(filePath); } catch (_) { }
+    // Return the original filename the user uploaded
+    return originalName || path.basename(filePath);
+};
+
 // ── Upload-from-URL helper ────────────────────────────────────────────────────
 /**
  * Fetch a remote image URL and:
