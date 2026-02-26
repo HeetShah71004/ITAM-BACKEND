@@ -5,6 +5,17 @@ import asyncHandler from "../utils/asyncHandler.js";
 import { sendSuccess, sendError } from "../utils/responseHandler.js";
 import { deleteAssetImage, uploadImageFromUrl } from "../middleware/upload.middleware.js";
 
+// Helper: strip empty-string values for Date fields so Mongoose doesn't cast "" → null
+const DATE_FIELDS = ["purchaseDate", "warrantyExpiry"];
+const stripEmptyDates = (data) => {
+    DATE_FIELDS.forEach((field) => {
+        if (data[field] === "" || data[field] === null) {
+            delete data[field];
+        }
+    });
+    return data;
+};
+
 // Helper: find asset by MongoDB _id OR custom assetTag (e.g. "AST001")
 const findAssetByIdOrAssetTag = async (identifier) => {
     if (mongoose.Types.ObjectId.isValid(identifier)) {
@@ -25,7 +36,7 @@ const isAlreadyStoredUrl = (url) => {
 // @desc    Create a new asset
 // @route   POST /api/assets
 export const createAsset = asyncHandler(async (req, res) => {
-    const data = { ...req.body };
+    const data = stripEmptyDates({ ...req.body });
 
     if (req.file) {
         // multipart/form-data file upload
@@ -65,7 +76,7 @@ export const updateAsset = asyncHandler(async (req, res) => {
         return sendError(res, "Asset not found", 404);
     }
 
-    const data = { ...req.body };
+    const data = stripEmptyDates({ ...req.body });
 
     if (req.file) {
         // multipart/form-data file upload — delete old image first
