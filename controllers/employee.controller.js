@@ -18,8 +18,14 @@ const findEmployeeByIdOrEmployeeId = async (identifier) => {
 export const createEmployee = asyncHandler(async (req, res) => {
     const data = { ...req.body };
 
+    // Guard: strip out invalid profileImage strings that FormData may produce
+    // when no file is selected (e.g. "null", "undefined", "")
+    if (!data.profileImage || data.profileImage === "null" || data.profileImage === "undefined" || data.profileImage === "") {
+        delete data.profileImage;
+    }
+
     if (req.file) {
-        // multipart/form-data file upload
+        // multipart/form-data file upload — req.file.path is the Cloudinary URL in production
         data.profileImage = req.file.path.replace(/\\/g, "/");
     } else if (data.profileImage && data.profileImage.startsWith("http")) {
         // JSON body with a remote URL — download/upload it
@@ -66,6 +72,12 @@ export const updateEmployee = asyncHandler(async (req, res) => {
     }
 
     const data = { ...req.body };
+
+    // Guard: strip out invalid profileImage strings that FormData may produce
+    // when no file is selected (e.g. "null", "undefined", "")
+    if (!data.profileImage || data.profileImage === "null" || data.profileImage === "undefined" || data.profileImage === "") {
+        delete data.profileImage;
+    }
 
     if (req.file) {
         // multipart/form-data file upload — delete old image first

@@ -85,14 +85,28 @@ const createUploader = (subfolder, fieldName) => {
      * Delete an image by its stored identifier.
      *
      * @param {string} identifier
-     *   - PRODUCTION  : Cloudinary public_id  (e.g. "itam/assets/assets-1234567890")
-     *   - DEVELOPMENT : local file path       (e.g. "uploads/assets/assets-1234567890.jpg")
+     *   - PRODUCTION  : Cloudinary secure_url OR public_id
+     *                   (e.g. "https://res.cloudinary.com/.../itam/assets/assets-1234567890.jpg"
+     *                    or   "itam/assets/assets-1234567890")
+     *   - DEVELOPMENT : local file path  (e.g. "uploads/assets/assets-1234567890.jpg")
      */
     const deleteImage = async (identifier) => {
         if (!identifier) return;
         try {
             if (IS_PROD) {
-                await cloudinary.uploader.destroy(identifier);
+                // cloudinary.uploader.destroy() requires the public_id, not the full URL.
+                // multer-storage-cloudinary stores req.file.path as the secure_url, so we
+                // must extract the public_id before calling destroy().
+                let publicId = identifier;
+                if (/^https?:\/\/res\.cloudinary\.com\//.test(identifier)) {
+                    // URL format: https://res.cloudinary.com/<cloud>/image/upload/v<ver>/<public_id>.<ext>
+                    // The extension and query string are optional in some Cloudinary delivery URLs.
+                    const match = identifier.match(/\/upload\/(?:v\d+\/)?([^.?]+)(?:\.[^.?]+)?(?:\?.*)?$/);
+                    publicId = match ? match[1] : null;
+                }
+                if (publicId) {
+                    await cloudinary.uploader.destroy(publicId);
+                }
             } else {
                 const localPath = path.resolve(identifier);
                 if (fs.existsSync(localPath)) {
