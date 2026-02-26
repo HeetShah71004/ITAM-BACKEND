@@ -81,6 +81,7 @@ const assetSchema = new mongoose.Schema(
     },
     warrantyExpiry: {
       type: Date,
+      default: null,
       validate: {
         validator: function (value) {
           // Warranty expiry should be after purchase date if both are provided

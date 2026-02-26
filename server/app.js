@@ -7,6 +7,7 @@ import employeeRoutes from "../router/employee.routes.js";
 import assignmentRoutes from "../router/assignment.routes.js";
 import dashboardRoutes from "../router/dashboard.routes.js";
 import licenseRoutes from "../router/license.routes.js";
+import exportRoutes from "../router/export.routes.js";
 
 const app = express();
 
@@ -23,6 +24,7 @@ app.use("/api/employees", employeeRoutes);
 app.use("/api/assignments", assignmentRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/licenses", licenseRoutes);
+app.use("/api/export", exportRoutes);
 
 // Helper for root path
 app.get("/", (req, res) => {
