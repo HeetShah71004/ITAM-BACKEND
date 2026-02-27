@@ -1,7 +1,5 @@
-// server/app.js
 import express from "express";
 import cors from "cors";
-import path from "path";
 import assetRoutes from "../router/asset.routes.js";
 import employeeRoutes from "../router/employee.routes.js";
 import assignmentRoutes from "../router/assignment.routes.js";
@@ -14,8 +12,6 @@ const app = express();
 // Middleware
 app.use(cors());
 app.use(express.json());
-
-app.use("/uploads", express.static(path.resolve("uploads")));
 
 
 // Routes
@@ -33,10 +29,25 @@ app.get("/", (req, res) => {
 
 // Error Handling Middleware
 app.use((err, req, res, next) => {
-    const statusCode = err.statusCode || 500;
+    let statusCode = err.statusCode || 500;
+    let message = err.message || "Internal Server Error";
+
+    // Handle Mongoose Validation Error
+    if (err.name === "ValidationError") {
+        statusCode = 400;
+        message = Object.values(err.errors).map((val) => val.message).join(", ");
+    }
+
+    // Handle Mongoose Duplicate Key Error (e.g. unique field violated)
+    if (err.code === 11000) {
+        statusCode = 400;
+        const field = Object.keys(err.keyValue)[0];
+        message = `Duplicate field value entered for: ${field}`;
+    }
+
     res.status(statusCode).json({
         success: false,
-        message: err.message || "Internal Server Error",
+        message,
         stack: process.env.NODE_ENV === "production" ? null : err.stack,
     });
 });

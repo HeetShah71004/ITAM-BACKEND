@@ -13,10 +13,20 @@ const findEmployeeByIdOrEmployeeId = async (identifier) => {
     return Employee.findOne({ employeeId: identifier });
 };
 
+// Helper: strip empty-string values so Mongoose doesn't try to cast "" to Number/Date
+const stripEmptyFields = (data) => {
+    Object.keys(data).forEach((key) => {
+        if (data[key] === "" || data[key] === "null" || data[key] === "undefined") {
+            delete data[key];
+        }
+    });
+    return data;
+};
+
 // @desc    Create a new employee
 // @route   POST /api/employees
 export const createEmployee = asyncHandler(async (req, res) => {
-    const data = { ...req.body };
+    const data = stripEmptyFields({ ...req.body });
 
     if (req.file) {
         // multipart/form-data file upload
@@ -65,7 +75,7 @@ export const updateEmployee = asyncHandler(async (req, res) => {
         return sendError(res, "Employee not found", 404);
     }
 
-    const data = { ...req.body };
+    const data = stripEmptyFields({ ...req.body });
 
     if (req.file) {
         // multipart/form-data file upload — delete old image first

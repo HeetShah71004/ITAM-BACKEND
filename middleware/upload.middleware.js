@@ -1,13 +1,9 @@
 // middleware/upload.middleware.js
 import multer from "multer";
-import path from "path";
-import fs from "fs";
-import https from "https";
-import http from "http";
 import { CloudinaryStorage } from "multer-storage-cloudinary";
 import cloudinary from "../config/cloudinary.js";
 
-const IS_PROD = process.env.NODE_ENV === "production";
+
 
 /**
  * Extract a Cloudinary public_id from a full secure URL.
@@ -16,14 +12,23 @@ const IS_PROD = process.env.NODE_ENV === "production";
  * If identifier is already a public_id (no "http"), it is returned as-is.
  */
 const extractPublicId = (url) => {
-    const match = url.match(/\/upload\/(?:v\d+\/)?(.+?)(?:\.[a-z]+)?$/i);
-    return match ? match[1] : null;
+    try {
+        // Handle full URLs
+        if (url.startsWith("http")) {
+            // Updated regex to better capture public_id from various Cloudinary URL formats
+            // Matches anything after /upload/ (skipping version like v12345/) and before the extension
+            const match = url.match(/\/upload\/(?:v\d+\/)?(.+?)(?:\.[a-z0-9]+)?$/i);
+            return match ? match[1] : null;
+        }
+        // If it's already a public_id (no protocol), return as is
+        return url;
+    } catch (err) {
+        return null;
+    }
 };
 
 /**
- * Build a multer instance that:
- *   - In PRODUCTION  → streams directly to Cloudinary (folder: "itam/<subfolder>")
- *   - In DEVELOPMENT → saves to disk under uploads/<subfolder>/
+ * Build a multer instance that streams directly to Cloudinary (folder: "itam/<subfolder>").
  *
  * Also exports a `deleteImage(identifier)` helper for cleanup.
  *
@@ -31,32 +36,15 @@ const extractPublicId = (url) => {
  * @param {string} fieldName  - the form-data key expected in the request
  */
 const createUploader = (subfolder, fieldName) => {
-    let storage;
-
-    if (IS_PROD) {
-        // ── Cloudinary storage ────────────────────────────────────────────────
-        storage = new CloudinaryStorage({
-            cloudinary,
-            params: {
-                folder: `itam/${subfolder}`,
-                allowed_formats: ["jpg", "jpeg", "png", "webp"],
-                transformation: [{ quality: "auto", fetch_format: "auto" }],
-            },
-        });
-    } else {
-        // ── Local disk storage ────────────────────────────────────────────────
-        const uploadDir = path.resolve("uploads", subfolder);
-        fs.mkdirSync(uploadDir, { recursive: true });
-
-        storage = multer.diskStorage({
-            destination: (_req, _file, cb) => cb(null, uploadDir),
-            filename: (_req, file, cb) => {
-                const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-                const ext = path.extname(file.originalname).toLowerCase();
-                cb(null, `${subfolder}-${uniqueSuffix}${ext}`);
-            },
-        });
-    }
+    // ── Cloudinary storage ────────────────────────────────────────────────
+    const storage = new CloudinaryStorage({
+        cloudinary,
+        params: {
+            folder: `itam/${subfolder}`,
+            allowed_formats: ["jpg", "jpeg", "png", "webp"],
+            transformation: [{ quality: "auto", fetch_format: "auto" }],
+        },
+    });
 
     const fileFilter = (_req, file, cb) => {
         const allowed = ["image/jpeg", "image/png", "image/webp"];
@@ -93,33 +81,24 @@ const createUploader = (subfolder, fieldName) => {
     };
 
     /**
-     * Delete an image by its stored identifier.
+     * Delete an image from Cloudinary by its stored identifier.
      *
-     * @param {string} identifier
-     *   - PRODUCTION  : Cloudinary public_id  (e.g. "itam/assets/assets-1234567890")
-     *   - DEVELOPMENT : local file path       (e.g. "uploads/assets/assets-1234567890.jpg")
+     * @param {string} identifier - Cloudinary public_id or secure URL
      */
     const deleteImage = async (identifier) => {
         if (!identifier) return;
         try {
-            if (IS_PROD) {
-                // identifier may be a full Cloudinary URL or already a public_id
-                const publicId = identifier.startsWith("http")
-                    ? extractPublicId(identifier)
-                    : identifier;
-                if (publicId) {
-                    await cloudinary.uploader.destroy(publicId);
-                    console.log(`[upload] Deleted Cloudinary image: ${publicId}`);
-                }
-            } else {
-                const localPath = path.resolve(identifier);
-                if (fs.existsSync(localPath)) {
-                    fs.unlinkSync(localPath);
-                }
+            // identifier may be a full Cloudinary URL or already a public_id
+            const publicId = extractPublicId(identifier);
+
+            if (publicId) {
+                console.log(`[upload] Attempting to delete Cloudinary image: ${publicId}`);
+                const result = await cloudinary.uploader.destroy(publicId);
+                console.log(`[upload] Cloudinary deletion result:`, result.result);
             }
         } catch (err) {
             // Log but don't throw — image cleanup should never crash the request
-            console.warn(`[upload] Failed to delete image "${identifier}":`, err.message);
+            console.warn(`[upload] Failed to delete Cloudinary image "${identifier}":`, err.message);
         }
     };
 
@@ -142,46 +121,17 @@ export const deleteEmployeeImage = employeeUploader.deleteImage;
 
 // ── Upload-from-URL helper ────────────────────────────────────────────────────
 /**
- * Fetch a remote image URL and:
- *   - PRODUCTION  → upload to Cloudinary, return the secure Cloudinary URL
- *   - DEVELOPMENT → download to disk under uploads/<subfolder>/, return local path
+ * Fetch a remote image URL and upload to Cloudinary.
  *
  * @param {string} remoteUrl   - Public HTTP/HTTPS image URL
  * @param {string} subfolder   - e.g. "assets" or "employees"
- * @returns {Promise<string>}  - The stored image URL / path
+ * @returns {Promise<string>}  - The stored image URL
  */
 export const uploadImageFromUrl = async (remoteUrl, subfolder = "assets") => {
-    if (IS_PROD) {
-        // Cloudinary can fetch & upload a public URL directly
-        const result = await cloudinary.uploader.upload(remoteUrl, {
-            folder: `itam/${subfolder}`,
-            transformation: [{ quality: "auto", fetch_format: "auto" }],
-        });
-        return result.secure_url;
-    }
-
-    // ── Development: download the file and save it locally ────────────────────
-    const uploadDir = path.resolve("uploads", subfolder);
-    fs.mkdirSync(uploadDir, { recursive: true });
-
-    // Derive a simple extension from the URL
-    const urlPath = new URL(remoteUrl).pathname;
-    const ext = path.extname(urlPath).split("?")[0] || ".jpg";
-    const filename = `${subfolder}-${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`;
-    const localPath = path.join(uploadDir, filename);
-
-    await new Promise((resolve, reject) => {
-        const protocol = remoteUrl.startsWith("https") ? https : http;
-        const file = fs.createWriteStream(localPath);
-        protocol.get(remoteUrl, (res) => {
-            res.pipe(file);
-            file.on("finish", () => file.close(resolve));
-        }).on("error", (err) => {
-            fs.unlink(localPath, () => { });
-            reject(err);
-        });
+    // Cloudinary can fetch & upload a public URL directly
+    const result = await cloudinary.uploader.upload(remoteUrl, {
+        folder: `itam/${subfolder}`,
+        transformation: [{ quality: "auto", fetch_format: "auto" }],
     });
-
-    // Return relative path (forward slashes) so it's consistent with req.file.path
-    return localPath.replace(/\\/g, "/");
+    return result.secure_url;
 };

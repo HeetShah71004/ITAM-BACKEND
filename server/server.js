@@ -1,11 +1,10 @@
 // server/server.js
 import dotenv from "dotenv";
+dotenv.config();
+
 import connectDB from "../config/db.js";
 import app from "./app.js";
 import { initScheduledJobs } from "../jobs/scheduledJobs.js";
-
-// Load Environment Variables
-dotenv.config();
 
 // Connect to Database
 connectDB();

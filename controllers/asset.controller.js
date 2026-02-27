@@ -15,12 +15,11 @@ const normalizeFields = (data) => {
     return data;
 };
 
-// Helper: strip empty-string values for Date fields so Mongoose doesn't cast "" → null
-const DATE_FIELDS = ["purchaseDate", "warrantyExpiry"];
-const stripEmptyDates = (data) => {
-    DATE_FIELDS.forEach((field) => {
-        if (data[field] === "" || data[field] === null) {
-            delete data[field];
+// Helper: strip empty-string values so Mongoose doesn't try to cast "" to Number/Date
+const stripEmptyFields = (data) => {
+    Object.keys(data).forEach((key) => {
+        if (data[key] === "" || data[key] === "null" || data[key] === "undefined") {
+            delete data[key];
         }
     });
     return data;
@@ -47,10 +46,10 @@ const isAlreadyStoredUrl = (url) => {
 // @desc    Create a new asset
 // @route   POST /api/assets
 export const createAsset = asyncHandler(async (req, res) => {
-    const data = stripEmptyDates(normalizeFields({ ...req.body }));
+    const data = stripEmptyFields(normalizeFields({ ...req.body }));
 
     if (req.file) {
-        // multipart/form-data file upload
+        // multipart/form-data file upload — relative path e.g. uploads/assets/filename.png
         data.imageUrl = req.file.path.replace(/\\/g, "/");
     } else if (data.imageUrl && data.imageUrl.startsWith("http")) {
         // JSON body with a remote URL — download/upload it
@@ -87,7 +86,7 @@ export const updateAsset = asyncHandler(async (req, res) => {
         return sendError(res, "Asset not found", 404);
     }
 
-    const data = stripEmptyDates(normalizeFields({ ...req.body }));
+    const data = stripEmptyFields(normalizeFields({ ...req.body }));
 
     if (req.file) {
         // multipart/form-data file upload — delete old image first
