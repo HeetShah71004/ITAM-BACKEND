@@ -4,6 +4,8 @@ import SoftwareLicense from "../models/SoftwareLicense.js";
 import Employee from "../models/Employee.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import { sendSuccess, sendError } from "../utils/responseHandler.js";
+import { logActivity } from "../utils/activityLogger.js";
+
 
 const findEmployeeByIdOrEmployeeId = async (identifier) => {
     if (mongoose.Types.ObjectId.isValid(identifier)) {
@@ -11,14 +13,26 @@ const findEmployeeByIdOrEmployeeId = async (identifier) => {
         if (emp) return emp;
     }
     return Employee.findOne({ employeeId: identifier });
-}; 
+};
 
 // @desc    Create a new software license
 // @route   POST /api/licenses
 export const createLicense = asyncHandler(async (req, res) => {
     const license = await SoftwareLicense.create(req.body);
+
+    // Activity Log
+    await logActivity({
+        userId: req.user?._id || "System",
+        action: "CREATE_LICENSE",
+        targetType: "SoftwareLicense",
+        targetId: license._id,
+        details: { softwareName: license.softwareName, licenseType: license.licenseType },
+        ipAddress: req.ip
+    });
+
     sendSuccess(res, license, "Software license created successfully", 201);
 });
+
 
 // @desc    Get all software licenses
 // @route   GET /api/licenses?status=Active&licenseType=Subscription
@@ -68,8 +82,19 @@ export const updateLicense = asyncHandler(async (req, res) => {
         return sendError(res, "Software license not found", 404);
     }
 
+    // Activity Log
+    await logActivity({
+        userId: req.user?._id || "System",
+        action: "UPDATE_LICENSE",
+        targetType: "SoftwareLicense",
+        targetId: license._id,
+        details: { softwareName: license.softwareName, updatedFields: Object.keys(allowedUpdates) },
+        ipAddress: req.ip
+    });
+
     sendSuccess(res, license, "Software license updated successfully", 200);
 });
+
 
 // @desc    Delete a software license
 // @route   DELETE /api/licenses/:id
@@ -89,8 +114,20 @@ export const deleteLicense = asyncHandler(async (req, res) => {
     }
 
     await SoftwareLicense.findByIdAndDelete(req.params.id);
+
+    // Activity Log
+    await logActivity({
+        userId: req.user?._id || "System",
+        action: "DELETE_LICENSE",
+        targetType: "SoftwareLicense",
+        targetId: license._id,
+        details: { softwareName: license.softwareName },
+        ipAddress: req.ip
+    });
+
     sendSuccess(res, null, "Software license deleted successfully", 200);
 });
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SEAT MANAGEMENT
@@ -174,6 +211,20 @@ export const assignLicense = asyncHandler(async (req, res) => {
 
     await license.save();
 
+    // Activity Log
+    await logActivity({
+        userId: req.user?._id || assignedBy || "System",
+        action: "UPDATE_LICENSE", // Broad category, could be more specific
+        targetType: "SoftwareLicense",
+        targetId: license._id,
+        details: {
+            softwareName: license.softwareName,
+            action: "ASSIGN_SEAT",
+            employeeId: employeeDoc.employeeId
+        },
+        ipAddress: req.ip
+    });
+
     // Return populated document
     const populated = await SoftwareLicense.findById(license._id).populate(
         "assignedTo.employee",
@@ -182,6 +233,7 @@ export const assignLicense = asyncHandler(async (req, res) => {
 
     sendSuccess(res, populated, "License seat assigned successfully", 200);
 });
+
 
 // @desc    Revoke a license seat from an employee
 // @route   POST /api/licenses/revoke
@@ -223,6 +275,20 @@ export const revokeLicense = asyncHandler(async (req, res) => {
 
     await license.save();
 
+    // Activity Log
+    await logActivity({
+        userId: req.user?._id || "System",
+        action: "UPDATE_LICENSE",
+        targetType: "SoftwareLicense",
+        targetId: license._id,
+        details: {
+            softwareName: license.softwareName,
+            action: "REVOKE_SEAT",
+            employeeId: employeeDoc.employeeId
+        },
+        ipAddress: req.ip
+    });
+
     // Return populated document
     const populated = await SoftwareLicense.findById(license._id).populate(
         "assignedTo.employee",
@@ -231,6 +297,7 @@ export const revokeLicense = asyncHandler(async (req, res) => {
 
     sendSuccess(res, populated, "License seat revoked successfully", 200);
 });
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // REPORTING

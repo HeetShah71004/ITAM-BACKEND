@@ -4,6 +4,8 @@ import Asset from "../models/Asset.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import { sendSuccess, sendError } from "../utils/responseHandler.js";
 import { deleteAssetImage, uploadImageFromUrl } from "../middleware/upload.middleware.js";
+import { logActivity } from "../utils/activityLogger.js";
+
 
 // Helper: normalize frontend field names to match the Mongoose schema
 // e.g. frontend sends "warrantyExpiryDate" but schema field is "warrantyExpiry"
@@ -57,8 +59,20 @@ export const createAsset = asyncHandler(async (req, res) => {
     }
 
     const asset = await Asset.create(data);
+
+    // Activity Log
+    await logActivity({
+        userId: req.user?._id || data.createdBy || "System", // Assuming req.user is populated by auth middleware
+        action: "CREATE_ASSET",
+        targetType: "Asset",
+        targetId: asset._id,
+        details: { assetTag: asset.assetTag, model: asset.model },
+        ipAddress: req.ip
+    });
+
     sendSuccess(res, asset, "Asset created successfully", 201);
 });
+
 
 // @desc    Get all assets
 // @route   GET /api/assets
@@ -114,8 +128,20 @@ export const updateAsset = asyncHandler(async (req, res) => {
         data,
         { new: true, runValidators: true, context: "query" }
     );
+
+    // Activity Log
+    await logActivity({
+        userId: req.user?._id || "System",
+        action: "UPDATE_ASSET",
+        targetType: "Asset",
+        targetId: asset._id,
+        details: { assetTag: asset.assetTag, updatedFields: Object.keys(data) },
+        ipAddress: req.ip
+    });
+
     sendSuccess(res, asset, "Asset updated successfully");
 });
+
 
 // @desc    Delete asset (also removes associated image)
 // @route   DELETE /api/assets/:id  (accepts _id or assetTag)
@@ -125,7 +151,19 @@ export const deleteAsset = asyncHandler(async (req, res) => {
         return sendError(res, "Asset not found", 404);
     }
     await Asset.findByIdAndDelete(existing._id);
+
+    // Activity Log
+    await logActivity({
+        userId: req.user?._id || "System",
+        action: "DELETE_ASSET",
+        targetType: "Asset",
+        targetId: existing._id,
+        details: { assetTag: existing.assetTag },
+        ipAddress: req.ip
+    });
+
     // Clean up image from disk / Cloudinary
+
     if (existing.imageUrl) {
         await deleteAssetImage(existing.imageUrl);
     }

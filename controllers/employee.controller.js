@@ -4,6 +4,8 @@ import Employee from "../models/Employee.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import { sendSuccess, sendError } from "../utils/responseHandler.js";
 import { deleteEmployeeImage, uploadImageFromUrl } from "../middleware/upload.middleware.js";
+import { logActivity } from "../utils/activityLogger.js";
+
 
 const findEmployeeByIdOrEmployeeId = async (identifier) => {
     if (mongoose.Types.ObjectId.isValid(identifier)) {
@@ -37,8 +39,20 @@ export const createEmployee = asyncHandler(async (req, res) => {
     }
 
     const employee = await Employee.create(data);
+
+    // Activity Log
+    await logActivity({
+        userId: req.user?._id || "System",
+        action: "CREATE_EMPLOYEE",
+        targetType: "Employee",
+        targetId: employee._id,
+        details: { employeeId: employee.employeeId, fullName: `${employee.firstName} ${employee.lastName}` },
+        ipAddress: req.ip
+    });
+
     sendSuccess(res, employee, "Employee created successfully", 201);
 });
+
 
 // @desc    Get all employees
 // @route   GET /api/employees
@@ -105,8 +119,20 @@ export const updateEmployee = asyncHandler(async (req, res) => {
         data,
         { new: true, runValidators: true, context: "query" }
     );
+
+    // Activity Log
+    await logActivity({
+        userId: req.user?._id || "System",
+        action: "UPDATE_EMPLOYEE",
+        targetType: "Employee",
+        targetId: employee._id,
+        details: { employeeId: employee.employeeId, updatedFields: Object.keys(data) },
+        ipAddress: req.ip
+    });
+
     sendSuccess(res, employee, "Employee updated successfully");
 });
+
 
 // @desc    Delete employee (also removes associated profile image)
 // @route   DELETE /api/employees/:id  (accepts _id or employeeId)
@@ -116,7 +142,19 @@ export const deleteEmployee = asyncHandler(async (req, res) => {
         return sendError(res, "Employee not found", 404);
     }
     await Employee.findByIdAndDelete(existing._id);
+
+    // Activity Log
+    await logActivity({
+        userId: req.user?._id || "System",
+        action: "DELETE_EMPLOYEE",
+        targetType: "Employee",
+        targetId: existing._id,
+        details: { employeeId: existing.employeeId, fullName: `${existing.firstName} ${existing.lastName}` },
+        ipAddress: req.ip
+    });
+
     // Clean up profile image from disk / Cloudinary
+
     if (existing.profileImage) {
         await deleteEmployeeImage(existing.profileImage);
     }

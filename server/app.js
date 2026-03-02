@@ -6,6 +6,8 @@ import assignmentRoutes from "../router/assignment.routes.js";
 import dashboardRoutes from "../router/dashboard.routes.js";
 import licenseRoutes from "../router/license.routes.js";
 import exportRoutes from "../router/export.routes.js";
+import activityLogRoutes from "../router/activityLog.routes.js";
+
 
 const app = express();
 
@@ -21,6 +23,8 @@ app.use("/api/assignments", assignmentRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/licenses", licenseRoutes);
 app.use("/api/export", exportRoutes);
+app.use("/api/activity-logs", activityLogRoutes);
+
 
 // Helper for root path
 app.get("/", (req, res) => {
