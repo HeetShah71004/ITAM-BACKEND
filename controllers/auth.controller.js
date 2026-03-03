@@ -108,3 +108,39 @@ export const getMe = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
+
+/**
+ * @desc    Update user profile
+ * @route   PUT /api/auth/profile
+ * @access  Private
+ */
+export const updateProfile = async (req, res) => {
+    try {
+        const { fullName, name, email, avatar } = req.body;
+        
+        const user = await User.findById(req.user._id);
+
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        // Handle both name (frontend) and fullName (backend)
+        if (fullName) user.fullName = fullName;
+        if (name) user.fullName = name;
+        if (email) user.email = email;
+        if (avatar !== undefined) user.avatar = avatar;
+
+        const updatedUser = await user.save();
+
+        res.json({
+            _id: updatedUser._id,
+            email: updatedUser.email,
+            role: updatedUser.role,
+            fullName: updatedUser.fullName,
+            name: updatedUser.fullName,
+            avatar: updatedUser.avatar,
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
