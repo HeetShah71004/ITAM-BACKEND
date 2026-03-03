@@ -13,7 +13,7 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: true,
     trim: true,
-    default: 'User'
+    default: 'Admin'
   },
   avatar: {
     type: String,
@@ -26,7 +26,7 @@ const userSchema = new mongoose.Schema({
   role: {
     type: String,
     enum: ['admin', 'manager', 'user'],
-    default: 'user'
+    default: 'admin'
   },
   isActive: {
     type: Boolean,
