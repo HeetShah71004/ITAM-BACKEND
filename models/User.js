@@ -4,9 +4,9 @@ import bcrypt from "bcryptjs";
 const userSchema = new mongoose.Schema({
   username: {
     type: String,
-    required: true,
     unique: true,
-    trim: true
+    trim: true,
+    sparse: true // Allow null/missing if unique
   },
   email: {
     type: String,
@@ -19,14 +19,16 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  fullName: {
+    type: String,
+    trim: true
+  },
   firstName: {
     type: String,
-    required: true,
     trim: true
   },
   lastName: {
     type: String,
-    required: true,
     trim: true
   },
   role: {
@@ -50,7 +52,9 @@ const userSchema = new mongoose.Schema({
     type: Date
   }
 }, {
-  timestamps: true
+  timestamps: true,
+  toJSON: { virtuals: true },
+  toObject: { virtuals: true }
 });
 
 // Hash password before saving
@@ -68,8 +72,9 @@ userSchema.methods.comparePassword = async function (candidatePassword) {
 };
 
 // Virtual for full name
-userSchema.virtual('fullName').get(function () {
-  return `${this.firstName} ${this.lastName}`;
+userSchema.virtual('displayFullName').get(function () {
+  if (this.fullName) return this.fullName;
+  return `${this.firstName || ''} ${this.lastName || ''}`.trim() || this.username || this.email;
 });
 
 export default mongoose.model('User', userSchema);

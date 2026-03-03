@@ -14,7 +14,7 @@ export const getActivityLogs = asyncHandler(async (req, res) => {
     if (targetId) query.targetId = targetId;
 
     const logs = await ActivityLog.find(query)
-        .populate("user", "firstName lastName username email")
+        .populate("user", "fullName firstName lastName username email")
         .sort({ createdAt: -1 })
         .limit(Number(limit))
         .skip(Number(skip));
@@ -37,7 +37,7 @@ export const getEntityActivityLogs = asyncHandler(async (req, res) => {
     const { targetType, targetId } = req.params;
 
     const logs = await ActivityLog.find({ targetType, targetId })
-        .populate("user", "firstName lastName username email")
+        .populate("user", "fullName firstName lastName username email")
         .sort({ createdAt: -1 });
 
     sendSuccess(res, logs, `Activity logs for ${targetType} retrieved successfully`);

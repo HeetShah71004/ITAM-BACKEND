@@ -15,24 +15,37 @@ const generateToken = (id) => {
  */
 export const register = async (req, res) => {
     try {
-        const { username, email, password, firstName, lastName, role, department, phoneNumber } = req.body;
+        const { fullName, email, password, confirmPassword } = req.body;
+
+        // Validation
+        if (!fullName || !email || !password || !confirmPassword) {
+            return res.status(400).json({ message: "Please provide all required fields (fullName, email, password, confirmPassword)" });
+        }
+
+        if (password !== confirmPassword) {
+            return res.status(400).json({ message: "Passwords do not match" });
+        }
 
         // Check if user exists
-        const userExists = await User.findOne({ $or: [{ email }, { username }] });
+        const userExists = await User.findOne({ email });
         if (userExists) {
-            return res.status(400).json({ message: "User already exists with this email or username" });
+            return res.status(400).json({ message: "User already exists with this email" });
         }
+
+        // Split fullName into firstName and lastName for backward compatibility
+        const nameParts = fullName.trim().split(/\s+/);
+        const firstName = nameParts[0];
+        const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
 
         // Create user
         const user = await User.create({
-            username,
+            username: email, // Use email as username
             email,
             password,
+            fullName,
             firstName,
             lastName,
-            role,
-            department,
-            phoneNumber
+            role: 'user' // Default role
         });
 
         if (user) {
@@ -41,7 +54,7 @@ export const register = async (req, res) => {
                 username: user.username,
                 email: user.email,
                 role: user.role,
-                fullName: user.fullName,
+                fullName: user.fullName || user.displayFullName,
                 token: generateToken(user._id),
             });
         } else {
@@ -74,7 +87,7 @@ export const login = async (req, res) => {
                 username: user.username,
                 email: user.email,
                 role: user.role,
-                fullName: user.fullName,
+                fullName: user.displayFullName,
                 token: generateToken(user._id),
             });
         } else {
