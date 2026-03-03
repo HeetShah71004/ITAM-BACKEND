@@ -67,10 +67,6 @@ userSchema.methods.comparePassword = async function (candidatePassword) {
   return bcrypt.compare(candidatePassword, this.password);
 };
 
-// Index for faster queries
-userSchema.index({ email: 1 });
-userSchema.index({ username: 1 });
-
 // Virtual for full name
 userSchema.virtual('fullName').get(function () {
   return `${this.firstName} ${this.lastName}`;
