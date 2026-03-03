@@ -7,6 +7,8 @@ import dashboardRoutes from "../router/dashboard.routes.js";
 import licenseRoutes from "../router/license.routes.js";
 import exportRoutes from "../router/export.routes.js";
 import activityLogRoutes from "../router/activityLog.routes.js";
+import authRoutes from "../router/auth.routes.js";
+
 
 
 const app = express();
@@ -17,7 +19,9 @@ app.use(express.json());
 
 
 // Routes
+app.use("/api/auth", authRoutes);
 app.use("/api/assets", assetRoutes);
+
 app.use("/api/employees", employeeRoutes);
 app.use("/api/assignments", assignmentRoutes);
 app.use("/api/dashboard", dashboardRoutes);
