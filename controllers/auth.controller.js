@@ -32,29 +32,20 @@ export const register = async (req, res) => {
             return res.status(400).json({ message: "User already exists with this email" });
         }
 
-        // Split fullName into firstName and lastName for backward compatibility
-        const nameParts = fullName.trim().split(/\s+/);
-        const firstName = nameParts[0];
-        const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
-
         // Create user
         const user = await User.create({
-            username: email, // Use email as username
             email,
             password,
             fullName,
-            firstName,
-            lastName,
             role: 'user' // Default role
         });
 
         if (user) {
             res.status(201).json({
                 _id: user._id,
-                username: user.username,
                 email: user.email,
                 role: user.role,
-                fullName: user.fullName || user.displayFullName,
+                fullName: user.fullName,
                 token: generateToken(user._id),
             });
         } else {
@@ -84,10 +75,9 @@ export const login = async (req, res) => {
 
             res.json({
                 _id: user._id,
-                username: user.username,
                 email: user.email,
                 role: user.role,
-                fullName: user.displayFullName,
+                fullName: user.fullName,
                 token: generateToken(user._id),
             });
         } else {
