@@ -69,16 +69,19 @@ export const login = async (req, res) => {
         const user = await User.findOne({ email });
 
         if (user && (await user.comparePassword(password))) {
-            // Update last login
-            user.lastLogin = Date.now();
-            await user.save();
+            // Update last login using findByIdAndUpdate to avoid triggering full validation
+            const updatedUser = await User.findByIdAndUpdate(
+                user._id,
+                { lastLogin: Date.now() },
+                { new: true }
+            );
 
             res.json({
-                _id: user._id,
-                email: user.email,
-                role: user.role,
-                fullName: user.fullName,
-                token: generateToken(user._id),
+                _id: updatedUser._id,
+                email: updatedUser.email,
+                role: updatedUser.role,
+                fullName: updatedUser.fullName,
+                token: generateToken(updatedUser._id),
             });
         } else {
             res.status(401).json({ message: "Invalid email or password" });
