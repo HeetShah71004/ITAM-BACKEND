@@ -14,16 +14,16 @@ import { protect, authorize } from "../middleware/auth.middleware.js";
 const router = express.Router();
 
 router.route("/")
-    .post(protect, authorize("admin", "manager"), uploadAssetImage, createAsset)
-    .get(protect, getAllAssets);
+    .post(uploadAssetImage, createAsset)
+    .get(getAllAssets);
 
 router.route("/:id")
-    .get(protect, getAssetById)
-    .put(protect, authorize("admin", "manager"), uploadAssetImage, updateAsset)
-    .delete(protect, authorize("admin"), deleteAsset);
+    .get(getAssetById)
+    .put(uploadAssetImage, updateAsset)
+    .delete(deleteAsset);
 
 router.route("/:id/image")
-    .post(protect, authorize("admin", "manager"), uploadAssetImage, uploadAssetImageHandler);
+    .post(uploadAssetImage, uploadAssetImageHandler);
 
 
 

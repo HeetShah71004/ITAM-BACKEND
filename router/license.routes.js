@@ -11,6 +11,7 @@ import {
     getExpiringLicenses,
     getLicenseCompliance,
 } from "../controllers/license.controller.js";
+import { protect } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
 
