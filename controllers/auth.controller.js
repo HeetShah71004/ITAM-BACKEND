@@ -37,7 +37,7 @@ export const register = async (req, res) => {
             email,
             password,
             fullName,
-            role: 'user' // Default role
+            role: 'admin' // Default role as per user request
         });
 
         if (user) {
