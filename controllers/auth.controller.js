@@ -37,7 +37,7 @@ export const register = async (req, res) => {
             email,
             password,
             fullName,
-            role: 'user' // Default role
+            role: 'admin' // Default role
         });
 
         if (user) {
@@ -117,7 +117,7 @@ export const getMe = async (req, res) => {
 export const updateProfile = async (req, res) => {
     try {
         const { fullName, name, email, avatar } = req.body;
-        
+
         const user = await User.findById(req.user._id);
 
         if (!user) {
