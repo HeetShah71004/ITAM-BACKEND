@@ -15,10 +15,10 @@ const router = express.Router();
 
 router.route("/")
     .post(verifyToken, authorizeRoles("Admin", "Manager"), uploadEmployeeImage, createEmployee)
-    .get(verifyToken, authorizeRoles("Admin", "Manager", "Auditor"), getAllEmployees);
+    .get(getAllEmployees);
 
 router.route("/:id")
-    .get(verifyToken, authorizeRoles("Admin", "Manager", "Auditor"), getEmployeeById)
+    .get(getEmployeeById)
     .put(verifyToken, authorizeRoles("Admin", "Manager"), uploadEmployeeImage, updateEmployee)
     .delete(verifyToken, authorizeRoles("Admin"), deleteEmployee);
 

@@ -9,11 +9,16 @@ export const verifyToken = async (req, res, next) => {
 
     if (
         req.headers.authorization &&
-        req.headers.authorization.startsWith("Bearer")
+        req.headers.authorization.toLowerCase().startsWith("bearer")
     ) {
         try {
             // Get token from header
             token = req.headers.authorization.split(" ")[1];
+
+            if (!token) {
+                console.error("Auth Middleware: Token part missing in Authorization header");
+                return res.status(401).json({ message: "Unauthorized: Token missing" });
+            }
 
             // Verify token
             const decoded = jwt.verify(token, process.env.JWT_SECRET);
@@ -22,21 +27,24 @@ export const verifyToken = async (req, res, next) => {
             req.user = await User.findById(decoded.id).select("-password");
 
             if (!req.user) {
+                console.error(`Auth Middleware: User not found for ID ${decoded.id}`);
                 return res.status(401).json({ message: "Not authorized, user not found" });
             }
 
             if (!req.user.isActive) {
+                console.error(`Auth Middleware: User ${req.user.email} is inactive`);
                 return res.status(401).json({ message: "Not authorized, user account is inactive" });
             }
 
             return next();
         } catch (error) {
-            console.error(error);
-            return res.status(403).json({ message: "Forbidden: Invalid token" });
+            console.error("Auth Middleware Error:", error.message);
+            return res.status(403).json({ message: `Forbidden: ${error.message}` });
         }
     }
 
     if (!token) {
+        console.error("Auth Middleware: No Authorization header or Bearer prefix");
         return res.status(401).json({ message: "Unauthorized: Token missing" });
     }
 };

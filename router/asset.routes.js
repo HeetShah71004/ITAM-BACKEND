@@ -18,10 +18,10 @@ router.get("/my-assets", verifyToken, getMyAssets);
 
 router.route("/")
     .post(verifyToken, authorizeRoles("Admin", "Manager"), uploadAssetImage, createAsset)
-    .get(verifyToken, authorizeRoles("Admin", "Manager", "Auditor"), getAllAssets);
+    .get(getAllAssets);
 
 router.route("/:id")
-    .get(verifyToken, authorizeRoles("Admin", "Manager", "Auditor"), getAssetById)
+    .get(getAssetById)
     .put(verifyToken, authorizeRoles("Admin", "Manager"), uploadAssetImage, updateAsset)
     .delete(verifyToken, authorizeRoles("Admin"), deleteAsset);
 

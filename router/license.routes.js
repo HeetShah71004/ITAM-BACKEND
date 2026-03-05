@@ -16,18 +16,18 @@ import { verifyToken, authorizeRoles } from "../middleware/auth.middleware.js";
 const router = express.Router();
 
 // ── Static routes (must come before /:id) ────────────────────────────────────
-router.get("/compliance", verifyToken, authorizeRoles("Admin", "Auditor"), getLicenseCompliance);
-router.get("/expiring", verifyToken, authorizeRoles("Admin", "Auditor"), getExpiringLicenses);
+router.get("/compliance", getLicenseCompliance);
+router.get("/expiring", getExpiringLicenses);
 router.post("/assign", verifyToken, authorizeRoles("Admin", "Manager"), assignLicense);
 router.post("/revoke", verifyToken, authorizeRoles("Admin", "Manager"), revokeLicense);
 
 // ── CRUD routes ───────────────────────────────────────────────────────────────
 router.route("/")
     .post(verifyToken, authorizeRoles("Admin", "Manager"), createLicense)
-    .get(verifyToken, authorizeRoles("Admin", "Manager", "Auditor"), getAllLicenses);
+    .get(getAllLicenses);
 
 router.route("/:id")
-    .get(verifyToken, authorizeRoles("Admin", "Manager", "Auditor"), getLicenseById)
+    .get(getLicenseById)
     .put(verifyToken, authorizeRoles("Admin", "Manager"), updateLicense)
     .delete(verifyToken, authorizeRoles("Admin"), deleteLicense);
 

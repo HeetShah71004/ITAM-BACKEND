@@ -11,8 +11,8 @@ import { verifyToken, authorizeRoles } from "../middleware/auth.middleware.js";
 const router = express.Router();
 
 // Dashboard routes
-router.get("/stats", verifyToken, authorizeRoles("Admin", "Manager", "Auditor"), getDashboardStats);
-router.get("/utilization", verifyToken, authorizeRoles("Admin", "Manager", "Auditor"), getAssetUtilization);
-router.get("/trends", verifyToken, authorizeRoles("Admin", "Manager", "Auditor"), getAssignmentTrends);
+router.get("/stats", getDashboardStats);
+router.get("/utilization", getAssetUtilization);
+router.get("/trends", getAssignmentTrends);
 
 export default router;
