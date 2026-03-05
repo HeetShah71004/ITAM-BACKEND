@@ -7,23 +7,26 @@ import {
     updateAsset,
     deleteAsset,
     uploadAssetImageHandler,
+    getMyAssets,
 } from "../controllers/asset.controller.js";
 import { uploadAssetImage } from "../middleware/upload.middleware.js";
-import { protect, authorize } from "../middleware/auth.middleware.js";
+import { verifyToken, authorizeRoles } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
 
+router.get("/my-assets", verifyToken, getMyAssets);
+
 router.route("/")
-    .post(uploadAssetImage, createAsset)
-    .get(getAllAssets);
+    .post(verifyToken, authorizeRoles("Admin", "Manager"), uploadAssetImage, createAsset)
+    .get(verifyToken, authorizeRoles("Admin", "Manager", "Auditor"), getAllAssets);
 
 router.route("/:id")
-    .get(getAssetById)
-    .put(uploadAssetImage, updateAsset)
-    .delete(deleteAsset);
+    .get(verifyToken, authorizeRoles("Admin", "Manager", "Auditor"), getAssetById)
+    .put(verifyToken, authorizeRoles("Admin", "Manager"), uploadAssetImage, updateAsset)
+    .delete(verifyToken, authorizeRoles("Admin"), deleteAsset);
 
 router.route("/:id/image")
-    .post(uploadAssetImage, uploadAssetImageHandler);
+    .post(verifyToken, authorizeRoles("Admin", "Manager"), uploadAssetImage, uploadAssetImageHandler);
 
 
 

@@ -9,12 +9,21 @@ import {
     uploadEmployeeImageHandler,
 } from "../controllers/employee.controller.js";
 import { uploadEmployeeImage } from "../middleware/upload.middleware.js";
+import { verifyToken, authorizeRoles } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
 
-router.route("/").post(uploadEmployeeImage, createEmployee).get(getAllEmployees);
-router.route("/:id").get(getEmployeeById).put(uploadEmployeeImage, updateEmployee).delete(deleteEmployee);
-router.route("/:id/image").post(uploadEmployeeImage, uploadEmployeeImageHandler);
+router.route("/")
+    .post(verifyToken, authorizeRoles("Admin", "Manager"), uploadEmployeeImage, createEmployee)
+    .get(verifyToken, authorizeRoles("Admin", "Manager", "Auditor"), getAllEmployees);
+
+router.route("/:id")
+    .get(verifyToken, authorizeRoles("Admin", "Manager", "Auditor"), getEmployeeById)
+    .put(verifyToken, authorizeRoles("Admin", "Manager"), uploadEmployeeImage, updateEmployee)
+    .delete(verifyToken, authorizeRoles("Admin"), deleteEmployee);
+
+router.route("/:id/image")
+    .post(verifyToken, authorizeRoles("Admin", "Manager"), uploadEmployeeImage, uploadEmployeeImageHandler);
 
 
 

@@ -1,6 +1,7 @@
 // controllers/asset.controller.js
 import mongoose from "mongoose";
 import Asset from "../models/Asset.js";
+import Employee from "../models/Employee.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import { sendSuccess, sendError } from "../utils/responseHandler.js";
 import { deleteAssetImage, uploadImageFromUrl } from "../middleware/upload.middleware.js";
@@ -170,8 +171,36 @@ export const deleteAsset = asyncHandler(async (req, res) => {
     sendSuccess(res, null, "Asset deleted successfully");
 });
 
-// @desc    Upload / replace asset image
-// @route   POST /api/assets/:id/image  (accepts _id or assetTag)
+// @desc    Get assets assigned to me (Employee)
+// @route   GET /api/assets/my-assets
+export const getMyAssets = asyncHandler(async (req, res) => {
+    // Assuming Employee model stores user reference or we match by employee email/id
+    // For now, if req.user is an Employee, we might need a link between User and Employee
+    // If not, we can find by email if they match
+
+    // Check if req.user exists (from verifyToken)
+    if (!req.user) {
+        return sendError(res, "User context not found", 401);
+    }
+
+    // Usually Employee table links to User table. 
+    // Let's check how assignments are stored in Asset model.
+    // currentAssignedTo in Asset.js refers to Employee model (usually).
+
+    // Let's find the Employee record for this User
+    const employee = await Employee.findOne({ email: req.user.email });
+
+    if (!employee) {
+        return sendSuccess(res, [], "No employee record found for user");
+    }
+
+    const assets = await Asset.find({ currentAssignedTo: employee._id })
+        .sort({ updatedAt: -1 })
+        .populate("currentAssignedTo", "firstName lastName employeeId");
+
+    sendSuccess(res, assets, "Your assets retrieved successfully");
+});
+
 export const uploadAssetImageHandler = asyncHandler(async (req, res) => {
     const asset = await findAssetByIdOrAssetTag(req.params.id);
     if (!asset) {

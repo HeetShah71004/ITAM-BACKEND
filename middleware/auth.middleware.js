@@ -2,9 +2,9 @@ import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 
 /**
- * @desc    Middleware to protect routes with JWT
+ * @desc    Middleware to protect routes with JWT (verifyToken)
  */
-export const protect = async (req, res, next) => {
+export const verifyToken = async (req, res, next) => {
     let token;
 
     if (
@@ -32,25 +32,25 @@ export const protect = async (req, res, next) => {
             return next();
         } catch (error) {
             console.error(error);
-            return res.status(401).json({ message: "Not authorized, token failed" });
+            return res.status(403).json({ message: "Forbidden: Invalid token" });
         }
     }
 
     if (!token) {
-        return res.status(401).json({ message: "Not authorized, no token" });
+        return res.status(401).json({ message: "Unauthorized: Token missing" });
     }
 };
 
 
 /**
- * @desc    Middleware to restrict access to specific roles
+ * @desc    Middleware to restrict access to specific roles (authorizeRoles)
  * @param   {...string} roles - Allowed roles
  */
-export const authorize = (...roles) => {
+export const authorizeRoles = (...roles) => {
     return (req, res, next) => {
         if (!req.user || !roles.includes(req.user.role)) {
             return res.status(403).json({
-                message: `User role '${req.user?.role || 'unknown'}' is not authorized to access this route`,
+                message: "Access denied: insufficient permissions",
             });
         }
         next();

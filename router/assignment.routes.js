@@ -8,15 +8,17 @@ import {
     getEmployeeAssignmentHistory,
 } from "../controllers/assignment.controller.js";
 
+import { verifyToken, authorizeRoles } from "../middleware/auth.middleware.js";
+
 const router = express.Router();
 
 // Assignment operations
-router.post("/assign", assignAsset);
-router.post("/return", returnAsset);
+router.post("/assign", verifyToken, authorizeRoles("Admin", "Manager"), assignAsset);
+router.post("/return", verifyToken, authorizeRoles("Admin", "Manager"), returnAsset);
 
 // Query assignment history
-router.get("/", getAllAssignments);
-router.get("/asset/:assetId", getAssetAssignmentHistory);
-router.get("/employee/:employeeId", getEmployeeAssignmentHistory);
+router.get("/", verifyToken, authorizeRoles("Admin", "Manager", "Auditor"), getAllAssignments);
+router.get("/asset/:assetId", verifyToken, authorizeRoles("Admin", "Manager", "Auditor"), getAssetAssignmentHistory);
+router.get("/employee/:employeeId", verifyToken, authorizeRoles("Admin", "Manager", "Auditor"), getEmployeeAssignmentHistory);
 
 export default router;

@@ -11,18 +11,24 @@ import {
     getExpiringLicenses,
     getLicenseCompliance,
 } from "../controllers/license.controller.js";
-import { protect } from "../middleware/auth.middleware.js";
+import { verifyToken, authorizeRoles } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
 
 // ── Static routes (must come before /:id) ────────────────────────────────────
-router.get("/compliance", getLicenseCompliance);
-router.get("/expiring", getExpiringLicenses);
-router.post("/assign", assignLicense);
-router.post("/revoke", revokeLicense);
+router.get("/compliance", verifyToken, authorizeRoles("Admin", "Auditor"), getLicenseCompliance);
+router.get("/expiring", verifyToken, authorizeRoles("Admin", "Auditor"), getExpiringLicenses);
+router.post("/assign", verifyToken, authorizeRoles("Admin", "Manager"), assignLicense);
+router.post("/revoke", verifyToken, authorizeRoles("Admin", "Manager"), revokeLicense);
 
 // ── CRUD routes ───────────────────────────────────────────────────────────────
-router.route("/").post(createLicense).get(getAllLicenses);
-router.route("/:id").get(getLicenseById).put(updateLicense).delete(deleteLicense);
+router.route("/")
+    .post(verifyToken, authorizeRoles("Admin", "Manager"), createLicense)
+    .get(verifyToken, authorizeRoles("Admin", "Manager", "Auditor"), getAllLicenses);
+
+router.route("/:id")
+    .get(verifyToken, authorizeRoles("Admin", "Manager", "Auditor"), getLicenseById)
+    .put(verifyToken, authorizeRoles("Admin", "Manager"), updateLicense)
+    .delete(verifyToken, authorizeRoles("Admin"), deleteLicense);
 
 export default router;
