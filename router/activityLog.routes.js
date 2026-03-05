@@ -1,3 +1,4 @@
+import express from "express";
 import { getActivityLogs, getEntityActivityLogs } from "../controllers/activityLog.controller.js";
 import { verifyToken, authorizeRoles } from "../middleware/auth.middleware.js";
 
