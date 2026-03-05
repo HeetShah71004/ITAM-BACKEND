@@ -15,7 +15,7 @@ const generateToken = (id) => {
  */
 export const register = async (req, res) => {
     try {
-        const { fullName, email, password, confirmPassword } = req.body;
+        const { fullName, email, password, confirmPassword, role } = req.body;
 
         // Validation
         if (!fullName || !email || !password || !confirmPassword) {
@@ -37,7 +37,7 @@ export const register = async (req, res) => {
             email,
             password,
             fullName,
-            role: 'Admin' // Default role as per user request
+            role: role || 'Employee' // Use provided role or default to Employee
         });
 
         if (user) {

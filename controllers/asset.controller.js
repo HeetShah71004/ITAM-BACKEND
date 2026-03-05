@@ -52,8 +52,8 @@ export const createAsset = asyncHandler(async (req, res) => {
     const data = stripEmptyFields(normalizeFields({ ...req.body }));
 
     if (req.file) {
-        // multipart/form-data file upload — relative path e.g. uploads/assets/filename.png
-        data.imageUrl = req.file.path.replace(/\\/g, "/");
+        // Cloudinary storage provides the full secure URL in req.file.path
+        data.imageUrl = req.file.path;
     } else if (data.imageUrl && data.imageUrl.startsWith("http")) {
         // JSON body with a remote URL — download/upload it
         data.imageUrl = await uploadImageFromUrl(data.imageUrl.trim(), "assets");
@@ -78,7 +78,19 @@ export const createAsset = asyncHandler(async (req, res) => {
 // @desc    Get all assets
 // @route   GET /api/assets
 export const getAllAssets = asyncHandler(async (req, res) => {
-    const assets = await Asset.find().sort({ updatedAt: -1 }).populate("currentAssignedTo", "firstName lastName employeeId");
+    let query = {};
+
+    // Permission Matrix: Employee can only view their own assets
+    if (req.user && req.user.role === "Employee") {
+        const employee = await Employee.findOne({ email: req.user.email });
+        if (employee) {
+            query.currentAssignedTo = employee._id;
+        } else {
+            return sendSuccess(res, [], "No assets assigned to your employee profile");
+        }
+    }
+
+    const assets = await Asset.find(query).sort({ updatedAt: -1 }).populate("currentAssignedTo", "firstName lastName employeeId");
     sendSuccess(res, assets, "Assets retrieved successfully");
 });
 
@@ -108,7 +120,7 @@ export const updateAsset = asyncHandler(async (req, res) => {
         if (existing.imageUrl) {
             await deleteAssetImage(existing.imageUrl);
         }
-        data.imageUrl = req.file.path.replace(/\\/g, "/");
+        data.imageUrl = req.file.path;
     } else if (data.imageUrl) {
         if (isAlreadyStoredUrl(data.imageUrl)) {
             // Already stored in our system — keep as-is, no re-upload
@@ -210,7 +222,7 @@ export const uploadAssetImageHandler = asyncHandler(async (req, res) => {
     let newImageUrl = null;
 
     if (req.file) {
-        newImageUrl = req.file.path.replace(/\\/g, "/");
+        newImageUrl = req.file.path;
     } else if (req.body && req.body.imageUrl) {
         newImageUrl = await uploadImageFromUrl(req.body.imageUrl.trim(), "assets");
     }

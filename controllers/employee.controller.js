@@ -31,8 +31,8 @@ export const createEmployee = asyncHandler(async (req, res) => {
     const data = stripEmptyFields({ ...req.body });
 
     if (req.file) {
-        // multipart/form-data file upload
-        data.profileImage = req.file.path.replace(/\\/g, "/");
+        // Cloudinary storage provides the full secure URL in req.file.path
+        data.profileImage = req.file.path;
     } else if (data.profileImage && data.profileImage.startsWith("http")) {
         // JSON body with a remote URL — download/upload it
         data.profileImage = await uploadImageFromUrl(data.profileImage.trim(), "employees");
@@ -96,7 +96,7 @@ export const updateEmployee = asyncHandler(async (req, res) => {
         if (existing.profileImage) {
             await deleteEmployeeImage(existing.profileImage);
         }
-        data.profileImage = req.file.path.replace(/\\/g, "/");
+        data.profileImage = req.file.path;
     } else if (data.profileImage) {
         if (isAlreadyStoredUrl(data.profileImage)) {
             // Already stored in our system — just keep it as-is, no re-upload
@@ -172,7 +172,7 @@ export const uploadEmployeeImageHandler = asyncHandler(async (req, res) => {
     let newProfileImage = null;
 
     if (req.file) {
-        newProfileImage = req.file.path.replace(/\\/g, "/");
+        newProfileImage = req.file.path;
     } else if (req.body && req.body.profileImage) {
         newProfileImage = await uploadImageFromUrl(req.body.profileImage.trim(), "employees");
     }

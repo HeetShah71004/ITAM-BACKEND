@@ -45,6 +45,16 @@ export const getAllLicenses = asyncHandler(async (req, res) => {
     if (category) filter.category = category;
     if (platform) filter.platform = platform;
 
+    // Permission Matrix: Employee can only view their own licenses
+    if (req.user && req.user.role === "Employee") {
+        const employee = await Employee.findOne({ email: req.user.email });
+        if (employee) {
+            filter["assignedTo.employee"] = employee._id;
+        } else {
+            return sendSuccess(res, [], "No licenses assigned to your employee profile");
+        }
+    }
+
     const licenses = await SoftwareLicense.find(filter)
         .populate("assignedTo.employee", "employeeId firstName lastName email department")
         .sort({ createdAt: -1 });
