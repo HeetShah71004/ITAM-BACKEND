@@ -54,9 +54,9 @@ const softwareLicenseSchema = new mongoose.Schema(
             maxlength: [100, "Software name cannot exceed 100 characters"],
         },
         vendor: {
-            type: String,
-            trim: true,
-            maxlength: [100, "Vendor name cannot exceed 100 characters"],
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Vendor",
+            default: null,
         },
         version: {
             type: String,

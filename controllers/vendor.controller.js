@@ -84,8 +84,11 @@ export const getVendors = asyncHandler(async (req, res) => {
     return sendSuccess(res, { vendors, pagination }, "Vendors retrieved successfully");
 });
 
+import Asset from "../models/Asset.js";
+import SoftwareLicense from "../models/SoftwareLicense.js";
+
 /**
- * @desc    Get vendor by ID
+ * @desc    Get vendor by ID with purchase history
  * @route   GET /api/vendors/:id
  * @access  Private
  */
@@ -96,7 +99,11 @@ export const getVendorById = asyncHandler(async (req, res) => {
         return sendError(res, "Vendor not found", 404);
     }
 
-    return sendSuccess(res, vendor, "Vendor retrieved successfully");
+    // Fetch purchase history (Assets and Licenses)
+    const assets = await Asset.find({ vendor: vendor._id }).populate("currentAssignedTo", "firstName lastName");
+    const licenses = await SoftwareLicense.find({ vendor: vendor._id });
+
+    return sendSuccess(res, { vendor, purchaseHistory: { assets, licenses } }, "Vendor retrieved successfully");
 });
 
 /**

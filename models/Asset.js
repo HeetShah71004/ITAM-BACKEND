@@ -135,6 +135,11 @@ const assetSchema = new mongoose.Schema(
       trim: true,
       default: null,
     },
+    vendor: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Vendor",
+      default: null,
+    },
   },
   { timestamps: true }
 );
