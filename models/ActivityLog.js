@@ -13,13 +13,14 @@ const activityLogSchema = new mongoose.Schema({
             'CREATE_ASSET', 'UPDATE_ASSET', 'DELETE_ASSET',
             'CREATE_EMPLOYEE', 'UPDATE_EMPLOYEE', 'DELETE_EMPLOYEE',
             'CREATE_LICENSE', 'UPDATE_LICENSE', 'DELETE_LICENSE',
-            'USER_LOGIN', 'USER_LOGOUT', 'EXPORT_DATA'
+            'USER_LOGIN', 'USER_LOGOUT', 'EXPORT_DATA',
+            'CREATE_VENDOR', 'UPDATE_VENDOR', 'DELETE_VENDOR'
         ]
     },
     targetType: {
         type: String,
         required: true,
-        enum: ['Asset', 'Employee', 'SoftwareLicense', 'User', 'System']
+        enum: ['Asset', 'Employee', 'SoftwareLicense', 'User', 'System', 'Vendor']
     },
     targetId: {
         type: mongoose.Schema.Types.ObjectId,

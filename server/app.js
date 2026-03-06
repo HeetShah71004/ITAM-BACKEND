@@ -9,6 +9,7 @@ import exportRoutes from "../router/export.routes.js";
 import activityLogRoutes from "../router/activityLog.routes.js";
 import authRoutes from "../router/auth.routes.js";
 import userRoutes from "../router/user.routes.js";
+import vendorRoutes from "../router/vendor.routes.js";
 
 
 
@@ -35,6 +36,7 @@ app.use("/api/licenses", licenseRoutes);
 app.use("/api/export", exportRoutes);
 app.use("/api/activity-logs", activityLogRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/vendors", vendorRoutes);
 
 
 // Helper for root path
