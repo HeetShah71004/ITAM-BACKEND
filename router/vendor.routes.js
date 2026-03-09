@@ -17,7 +17,7 @@ const validateVendor = [
         .if((value, { req }) => req.method === "POST" || req.body.vendorName !== undefined)
         .notEmpty().withMessage("Vendor name is required").trim(),
     body("email").optional({ checkFalsy: true }).isEmail().withMessage("Valid email is required").normalizeEmail(),
-    body("phone").optional({ checkFalsy: true }).isNumeric().withMessage("Phone should be numeric"),
+    body("phone").optional({ checkFalsy: true }).matches(/^[\d\s\-+()]{7,20}$/).withMessage("Please provide a valid phone number"),
     body("rating").optional().isFloat({ min: 1, max: 5 }).withMessage("Rating must be between 1 and 5"),
     (req, res, next) => {
         const errors = validationResult(req);
