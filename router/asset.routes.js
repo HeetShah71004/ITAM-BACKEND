@@ -8,6 +8,7 @@ import {
     deleteAsset,
     uploadAssetImageHandler,
     getMyAssets,
+    regenerateQRCode,
 } from "../controllers/asset.controller.js";
 import { uploadAssetImage } from "../middleware/upload.middleware.js";
 import { verifyToken, authorizeRoles } from "../middleware/auth.middleware.js";
@@ -27,6 +28,8 @@ router.route("/:id")
 
 router.route("/:id/image")
     .post(verifyToken, authorizeRoles("Admin", "Manager"), uploadAssetImage, uploadAssetImageHandler);
+
+router.post("/:id/generate-qr", verifyToken, authorizeRoles("Admin", "Manager"), regenerateQRCode);
 
 
 

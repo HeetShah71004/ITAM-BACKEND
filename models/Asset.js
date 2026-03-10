@@ -140,6 +140,10 @@ const assetSchema = new mongoose.Schema(
       ref: "Vendor",
       default: null,
     },
+    qrCode: {
+      type: String,
+      default: null,
+    },
   },
   { timestamps: true }
 );

@@ -6,6 +6,7 @@ import asyncHandler from "../utils/asyncHandler.js";
 import { sendSuccess, sendError } from "../utils/responseHandler.js";
 import { deleteAssetImage, uploadImageFromUrl } from "../middleware/upload.middleware.js";
 import { logActivity } from "../utils/activityLogger.js";
+import { generateQRCode } from "../utils/qrGenerator.js";
 
 
 // Helper: normalize frontend field names to match the Mongoose schema
@@ -60,6 +61,15 @@ export const createAsset = asyncHandler(async (req, res) => {
     }
 
     const asset = await Asset.create(data);
+
+    // Generate QR Code
+    const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 5000}`;
+    const qrText = `${baseUrl}/assets/${asset._id}`;
+    const qrCode = await generateQRCode(qrText);
+    
+    // Save QR code to asset
+    asset.qrCode = qrCode;
+    await asset.save();
 
     // Activity Log
     await logActivity({
@@ -141,6 +151,14 @@ export const updateAsset = asyncHandler(async (req, res) => {
         data,
         { new: true, runValidators: true, context: "query" }
     );
+
+    // Update QR Code if it doesn't exist
+    if (!asset.qrCode) {
+        const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 5000}`;
+        const qrText = `${baseUrl}/assets/${asset._id}`;
+        asset.qrCode = await generateQRCode(qrText);
+        await asset.save();
+    }
 
     // Activity Log
     await logActivity({
@@ -244,4 +262,241 @@ export const uploadAssetImageHandler = asyncHandler(async (req, res) => {
     await asset.save();
 
     sendSuccess(res, asset, "Asset image updated successfully");
+});
+
+// @desc    Regenerate QR code
+// @route   POST /api/assets/:id/generate-qr
+export const regenerateQRCode = asyncHandler(async (req, res) => {
+    const asset = await findAssetByIdOrAssetTag(req.params.id);
+    if (!asset) {
+        return sendError(res, "Asset not found", 404);
+    }
+
+    const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 5000}`;
+    const qrText = `${baseUrl}/assets/${asset._id}`;
+    const qrCode = await generateQRCode(qrText);
+
+    asset.qrCode = qrCode;
+    await asset.save();
+
+    sendSuccess(res, {
+        message: "QR Code regenerated successfully",
+        assetId: asset._id,
+        qrCode: asset.qrCode
+    }, "QR Code regenerated successfully");
+});
+
+// @desc    Get public asset view for QR scanning
+// @route   GET /assets/:id
+export const getAssetPublicView = asyncHandler(async (req, res) => {
+    const asset = await findAssetByIdOrAssetTag(req.params.id);
+    if (!asset) {
+        return res.status(404).send(`
+            <html>
+                <head>
+                    <title>Asset Not Found</title>
+                    <style>
+                        body { font-family: 'Inter', sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #f4f7f6; color: #333; }
+                        .container { text-align: center; padding: 2rem; background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+                        h1 { color: #e74c3c; }
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <h1>Asset Not Found</h1>
+                        <p>The asset you are looking for does not exist or has been removed.</p>
+                    </div>
+                </body>
+            </html>
+        `);
+    }
+
+    await asset.populate("currentAssignedTo", "firstName lastName");
+
+    // Premium HTML Template
+    const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Asset Details | ${asset.assetTag}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --success: #10b981;
+            --warning: #f59e0b;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .card {
+            background: var(--card-bg);
+            max-width: 500px;
+            width: 100%;
+            border-radius: 24px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.04);
+            overflow: hidden;
+            border: 1px solid rgba(0,0,0,0.05);
+            animation: slideUp 0.6s ease-out;
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            padding: 40px 30px;
+            text-align: center;
+            color: white;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+        }
+
+        .tag {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 6px 16px;
+            border-radius: 100px;
+            font-size: 14px;
+            font-weight: 600;
+            display: inline-block;
+            margin-top: 10px;
+            backdrop-filter: blur(4px);
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .image-container {
+            width: 100%;
+            height: 200px;
+            background: #f1f5f9;
+            border-radius: 16px;
+            margin-bottom: 25px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .image-container img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        .detail-row:last-child {
+            border-bottom: none;
+        }
+
+        .label {
+            color: var(--text-muted);
+            font-size: 14px;
+            font-weight: 400;
+        }
+
+        .value {
+            font-weight: 600;
+            font-size: 15px;
+        }
+
+        .status {
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-available { background: #ecfdf5; color: #065f46; }
+        .status-assigned { background: #eff6ff; color: #1e40af; }
+        .status-repair { background: #fffbeb; color: #92400e; }
+        .status-retired { background: #fef2f2; color: #991b1b; }
+
+        .footer {
+            padding: 20px 30px;
+            background: #f8fafc;
+            text-align: center;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="header">
+            <h1>Asset Details</h1>
+            <div class="tag">${asset.assetTag}</div>
+        </div>
+        <div class="content">
+            ${asset.imageUrl ? `
+            <div class="image-container">
+                <img src="${asset.imageUrl}" alt="${asset.name}">
+            </div>
+            ` : ''}
+            
+            <div class="detail-row">
+                <span class="label">Name</span>
+                <span class="value">${asset.name}</span>
+            </div>
+            <div class="detail-row">
+                <span class="label">Category</span>
+                <span class="value">${asset.category}</span>
+            </div>
+            <div class="detail-row">
+                <span class="label">Status</span>
+                <span class="status status-${asset.status.toLowerCase().replace(' ', '-')}">${asset.status}</span>
+            </div>
+            <div class="detail-row">
+                <span class="label">Assigned To</span>
+                <span class="value">${asset.currentAssignedTo ? asset.currentAssignedTo.firstName + ' ' + asset.currentAssignedTo.lastName : 'Not Assigned'}</span>
+            </div>
+            <div class="detail-row">
+                <span class="label">Model</span>
+                <span class="value">${asset.model || 'N/A'}</span>
+            </div>
+            <div class="detail-row">
+                <span class="label">Warranty Status</span>
+                <span class="value">${asset.isUnderWarranty ? '✅ In Warranty' : '❌ Expired/No Warranty'}</span>
+            </div>
+        </div>
+        <div class="footer">
+            IT Asset Management System &copy; ${new Date().getFullYear()}
+        </div>
+    </div>
+</body>
+</html>
+    `;
+    res.send(html);
 });

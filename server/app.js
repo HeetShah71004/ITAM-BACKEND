@@ -31,6 +31,10 @@ app.use(express.json());
 app.use("/api/auth", authRoutes);
 app.use("/api/assets", assetRoutes);
 
+// Public Asset View (for QR scans)
+import { getAssetPublicView } from "../controllers/asset.controller.js";
+app.get("/assets/:id", getAssetPublicView);
+
 app.use("/api/employees", employeeRoutes);
 app.use("/api/assignments", assignmentRoutes);
 app.use("/api/dashboard", dashboardRoutes);
