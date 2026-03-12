@@ -18,6 +18,11 @@ const findEmployeeByIdOrEmployeeId = async (identifier) => {
 // @desc    Create a new software license
 // @route   POST /api/licenses
 export const createLicense = asyncHandler(async (req, res) => {
+    // Remove empty vendor string so Mongoose doesn't try to cast "" to ObjectId
+    if (req.body.vendor === "" || req.body.vendor === null) {
+        delete req.body.vendor;
+    }
+
     const license = await SoftwareLicense.create(req.body);
 
     // Activity Log
@@ -81,6 +86,11 @@ export const getLicenseById = asyncHandler(async (req, res) => {
 // @route   PUT /api/licenses/:id
 export const updateLicense = asyncHandler(async (req, res) => {
     const { usedSeats, assignedTo, ...allowedUpdates } = req.body;
+
+    // Remove empty vendor string so Mongoose doesn't try to cast "" to ObjectId
+    if (allowedUpdates.vendor === "" || allowedUpdates.vendor === null) {
+        allowedUpdates.vendor = null;
+    }
 
     const license = await SoftwareLicense.findByIdAndUpdate(
         req.params.id,
