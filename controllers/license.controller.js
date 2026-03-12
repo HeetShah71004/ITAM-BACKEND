@@ -5,7 +5,6 @@ import Employee from "../models/Employee.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import { sendSuccess, sendError } from "../utils/responseHandler.js";
 import { logActivity } from "../utils/activityLogger.js";
-import { logAudit } from "../utils/auditLogger.js";
 
 
 const findEmployeeByIdOrEmployeeId = async (identifier) => {
@@ -29,16 +28,6 @@ export const createLicense = asyncHandler(async (req, res) => {
         targetId: license._id,
         details: { softwareName: license.softwareName, licenseType: license.licenseType },
         ipAddress: req.ip
-    });
-
-    // Audit Log
-    await logAudit({
-        userId: req.user?._id || "System",
-        action: 'CREATE',
-        resourceType: 'SoftwareLicense',
-        resourceId: license._id,
-        newValues: license.toObject(),
-        req
     });
 
     sendSuccess(res, license, "Software license created successfully", 201);
@@ -91,11 +80,6 @@ export const getLicenseById = asyncHandler(async (req, res) => {
 // @desc    Update a software license
 // @route   PUT /api/licenses/:id
 export const updateLicense = asyncHandler(async (req, res) => {
-    const existing = await SoftwareLicense.findById(req.params.id);
-    if (!existing) {
-        return sendError(res, "Software license not found", 404);
-    }
-
     const { usedSeats, assignedTo, ...allowedUpdates } = req.body;
 
     const license = await SoftwareLicense.findByIdAndUpdate(
@@ -116,17 +100,6 @@ export const updateLicense = asyncHandler(async (req, res) => {
         targetId: license._id,
         details: { softwareName: license.softwareName, updatedFields: Object.keys(allowedUpdates) },
         ipAddress: req.ip
-    });
-
-    // Audit Log
-    await logAudit({
-        userId: req.user?._id || "System",
-        action: 'UPDATE',
-        resourceType: 'SoftwareLicense',
-        resourceId: license._id,
-        oldValues: existing.toObject(),
-        newValues: license.toObject(),
-        req
     });
 
     sendSuccess(res, license, "Software license updated successfully", 200);
@@ -162,16 +135,6 @@ export const deleteLicense = asyncHandler(async (req, res) => {
         ipAddress: req.ip
     });
 
-    // Audit Log
-    await logAudit({
-        userId: req.user?._id || "System",
-        action: 'DELETE',
-        resourceType: 'SoftwareLicense',
-        resourceId: license._id,
-        oldValues: license.toObject(),
-        req
-    });
-
     sendSuccess(res, null, "Software license deleted successfully", 200);
 });
 
@@ -195,7 +158,6 @@ export const assignLicense = asyncHandler(async (req, res) => {
     if (!license) {
         return sendError(res, "Software license not found", 404);
     }
-    const licenseSnapshot = license.toObject();
 
     // Check license is active
     if (license.status !== "Active") {
@@ -279,17 +241,6 @@ export const assignLicense = asyncHandler(async (req, res) => {
         "employeeId firstName lastName email department"
     );
 
-    // Audit Log
-    await logAudit({
-        userId: req.user?._id || assignedBy || "System",
-        action: 'UPDATE',
-        resourceType: 'SoftwareLicense',
-        resourceId: license._id,
-        oldValues: licenseSnapshot, // I'll need to define this snapshot above
-        newValues: license.toObject(),
-        req
-    });
-
     sendSuccess(res, populated, "License seat assigned successfully", 200);
 });
 
@@ -309,7 +260,6 @@ export const revokeLicense = asyncHandler(async (req, res) => {
     if (!license) {
         return sendError(res, "Software license not found", 404);
     }
-    const licenseSnapshot = license.toObject();
 
     const employeeDoc = await findEmployeeByIdOrEmployeeId(employeeId);
     if (!employeeDoc) {
@@ -354,17 +304,6 @@ export const revokeLicense = asyncHandler(async (req, res) => {
         "assignedTo.employee",
         "employeeId firstName lastName email department"
     );
-
-    // Audit Log
-    await logAudit({
-        userId: req.user?._id || "System",
-        action: 'UPDATE',
-        resourceType: 'SoftwareLicense',
-        resourceId: license._id,
-        oldValues: licenseSnapshot, // I'll need to define this snapshot above
-        newValues: license.toObject(),
-        req
-    });
 
     sendSuccess(res, populated, "License seat revoked successfully", 200);
 });

@@ -60,7 +60,6 @@ const assetSchema = new mongoose.Schema(
     },
     purchaseDate: {
       type: Date,
-      required: [true, "Purchase date is required"],
       validate: {
         validator: function (value) {
           // Purchase date should not be in the future
@@ -71,7 +70,6 @@ const assetSchema = new mongoose.Schema(
     },
     purchaseCost: {
       type: Number,
-      required: [true, "Purchase cost is required"],
       min: [0, "Purchase cost cannot be negative"],
       validate: {
         validator: function (value) {
@@ -145,30 +143,6 @@ const assetSchema = new mongoose.Schema(
     qrCode: {
       type: String,
       default: null,
-    },
-    usefulLife: {
-      type: Number,
-      required: [true, "Useful life is required"],
-      min: [1, "Useful life must be at least 1 year"],
-    },
-    salvageValue: {
-      type: Number,
-      default: 0,
-      min: [0, "Salvage value cannot be negative"],
-      validate: {
-        validator: function (v) {
-          return v < this.purchaseCost;
-        },
-        message: "Salvage value must be less than purchase cost",
-      },
-    },
-    depreciationMethod: {
-      type: String,
-      enum: ["straight-line"],
-      default: "straight-line",
-    },
-    currentValue: {
-      type: Number,
     },
   },
   { timestamps: true }

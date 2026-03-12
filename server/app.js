@@ -11,9 +11,9 @@ import authRoutes from "../router/auth.routes.js";
 import userRoutes from "../router/user.routes.js";
 import vendorRoutes from "../router/vendor.routes.js";
 import maintenanceRoutes from "../router/maintenance.routes.js";
-import depreciationRoutes from "../router/depreciation.routes.js";
-import analyticsRoutes from "../router/analytics.routes.js";
-import reportRoutes from "../router/report.routes.js";
+
+
+
 
 const app = express();
 
@@ -25,6 +25,7 @@ app.use(cors({
     credentials: true
 }));
 app.use(express.json());
+
 
 // Routes
 app.use("/api/auth", authRoutes);
@@ -43,9 +44,8 @@ app.use("/api/activity-logs", activityLogRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/vendors", vendorRoutes);
 app.use("/api/maintenance", maintenanceRoutes);
-app.use("/api/depreciation", depreciationRoutes);
-app.use("/api/analytics", analyticsRoutes);
-app.use("/api/reports", reportRoutes);
+
+
 
 // Helper for root path
 app.get("/", (req, res) => {

@@ -2,7 +2,6 @@ import Vendor from "../models/Vendor.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import { sendSuccess, sendError } from "../utils/responseHandler.js";
 import { logActivity } from "../utils/activityLogger.js";
-import { logAudit } from "../utils/auditLogger.js";
 
 /**
  * @desc    Create a new vendor
@@ -40,16 +39,6 @@ export const createVendor = asyncHandler(async (req, res) => {
         targetId: vendor._id,
         details: { vendorName: vendor.vendorName },
         ipAddress: req.ip
-    });
-
-    // Audit Log
-    await logAudit({
-        userId: req.user._id,
-        action: 'CREATE',
-        resourceType: 'Vendor',
-        resourceId: vendor._id,
-        newValues: vendor.toObject(),
-        req
     });
 
     return sendSuccess(res, vendor, "Vendor created successfully", 201);
@@ -143,17 +132,6 @@ export const updateVendor = asyncHandler(async (req, res) => {
         ipAddress: req.ip
     });
 
-    // Audit Log
-    await logAudit({
-        userId: req.user._id,
-        action: 'UPDATE',
-        resourceType: 'Vendor',
-        resourceId: vendor._id,
-        oldValues: existing.toObject(),
-        newValues: vendor.toObject(),
-        req
-    });
-
     return sendSuccess(res, vendor, "Vendor updated successfully");
 });
 
@@ -179,17 +157,6 @@ export const deleteVendor = asyncHandler(async (req, res) => {
         targetId: vendor._id,
         details: { action: "Soft delete (status set to Inactive)" },
         ipAddress: req.ip
-    });
-
-    // Audit Log
-    await logAudit({
-        userId: req.user._id,
-        action: 'DELETE',
-        resourceType: 'Vendor',
-        resourceId: vendor._id,
-        oldValues: vendor.toObject(),
-        newValues: { status: 'Inactive' },
-        req
     });
 
     return sendSuccess(res, null, "Vendor deactivated successfully");
