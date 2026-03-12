@@ -5,6 +5,7 @@ import asyncHandler from "../utils/asyncHandler.js";
 import { sendSuccess, sendError } from "../utils/responseHandler.js";
 import { deleteEmployeeImage, uploadImageFromUrl } from "../middleware/upload.middleware.js";
 import { logActivity } from "../utils/activityLogger.js";
+import { logAudit } from "../utils/auditLogger.js";
 
 
 const findEmployeeByIdOrEmployeeId = async (identifier) => {
@@ -48,6 +49,16 @@ export const createEmployee = asyncHandler(async (req, res) => {
         targetId: employee._id,
         details: { employeeId: employee.employeeId, fullName: `${employee.firstName} ${employee.lastName}` },
         ipAddress: req.ip
+    });
+
+    // Audit Log
+    await logAudit({
+        userId: req.user?._id || "System",
+        action: 'CREATE',
+        resourceType: 'Employee',
+        resourceId: employee._id,
+        newValues: employee.toObject(),
+        req
     });
 
     sendSuccess(res, employee, "Employee created successfully", 201);
@@ -130,6 +141,17 @@ export const updateEmployee = asyncHandler(async (req, res) => {
         ipAddress: req.ip
     });
 
+    // Audit Log
+    await logAudit({
+        userId: req.user?._id || "System",
+        action: 'UPDATE',
+        resourceType: 'Employee',
+        resourceId: employee._id,
+        oldValues: existing.toObject(),
+        newValues: employee.toObject(),
+        req
+    });
+
     sendSuccess(res, employee, "Employee updated successfully");
 });
 
@@ -151,6 +173,16 @@ export const deleteEmployee = asyncHandler(async (req, res) => {
         targetId: existing._id,
         details: { employeeId: existing.employeeId, fullName: `${existing.firstName} ${existing.lastName}` },
         ipAddress: req.ip
+    });
+
+    // Audit Log
+    await logAudit({
+        userId: req.user?._id || "System",
+        action: 'DELETE',
+        resourceType: 'Employee',
+        resourceId: existing._id,
+        oldValues: existing.toObject(),
+        req
     });
 
     // Clean up profile image from disk / Cloudinary

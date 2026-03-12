@@ -4,6 +4,7 @@ import Asset from "../models/Asset.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import { sendSuccess, sendError } from "../utils/responseHandler.js";
 import { logActivity } from "../utils/activityLogger.js";
+import { logAudit } from "../utils/auditLogger.js";
 
 /**
  * @desc    Create a new maintenance record
@@ -55,6 +56,16 @@ export const createMaintenance = asyncHandler(async (req, res) => {
         targetId: maintenanceEntry._id,
         details: { assetId, maintenanceType, status },
         ipAddress: req.ip
+    });
+
+    // Audit Log
+    await logAudit({
+        userId: req.user._id,
+        action: 'CREATE',
+        resourceType: 'MaintenanceRecord',
+        resourceId: maintenanceEntry._id,
+        newValues: maintenanceEntry.toObject(),
+        req
     });
 
     return sendSuccess(res, maintenanceEntry, "Maintenance record created successfully", 201);
@@ -120,14 +131,15 @@ export const updateMaintenance = asyncHandler(async (req, res) => {
         }
     }
 
-    record = await MaintenanceRecord.findByIdAndUpdate(req.params.id, updateData, {
+    const oldSnapshot = record.toObject();
+    const updatedRecord = await MaintenanceRecord.findByIdAndUpdate(req.params.id, updateData, {
         new: true,
         runValidators: true
     });
 
     // If status changed to Completed, we might want to update asset status back to Available
     if (updateData.status === "Completed") {
-        const asset = await Asset.findById(record.assetId);
+        const asset = await Asset.findById(updatedRecord.assetId);
         if (asset && asset.status === "Under Repair") {
             asset.status = "Available";
             await asset.save();
@@ -138,12 +150,23 @@ export const updateMaintenance = asyncHandler(async (req, res) => {
         userId: req.user._id,
         action: "UPDATE_MAINTENANCE",
         targetType: "MaintenanceRecord",
-        targetId: record._id,
+        targetId: updatedRecord._id,
         details: { updatedFields: Object.keys(updateData) },
         ipAddress: req.ip
     });
 
-    return sendSuccess(res, record, "Maintenance record updated successfully");
+    // Audit Log
+    await logAudit({
+        userId: req.user._id,
+        action: 'UPDATE',
+        resourceType: 'MaintenanceRecord',
+        resourceId: updatedRecord._id,
+        oldValues: oldSnapshot,
+        newValues: updatedRecord.toObject(),
+        req
+    });
+
+    return sendSuccess(res, updatedRecord, "Maintenance record updated successfully");
 });
 
 /**
@@ -167,6 +190,16 @@ export const deleteMaintenance = asyncHandler(async (req, res) => {
         targetId: record._id,
         details: { assetId: record.assetId },
         ipAddress: req.ip
+    });
+
+    // Audit Log
+    await logAudit({
+        userId: req.user._id,
+        action: 'DELETE',
+        resourceType: 'MaintenanceRecord',
+        resourceId: record._id,
+        oldValues: record.toObject(),
+        req
     });
 
     return sendSuccess(res, null, "Maintenance record deleted successfully");

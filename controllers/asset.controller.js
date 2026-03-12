@@ -6,6 +6,7 @@ import asyncHandler from "../utils/asyncHandler.js";
 import { sendSuccess, sendError } from "../utils/responseHandler.js";
 import { deleteAssetImage, uploadImageFromUrl } from "../middleware/upload.middleware.js";
 import { logActivity } from "../utils/activityLogger.js";
+import { logAudit } from "../utils/auditLogger.js";
 import { generateQRCode } from "../utils/qrGenerator.js";
 
 
@@ -79,6 +80,16 @@ export const createAsset = asyncHandler(async (req, res) => {
         targetId: asset._id,
         details: { assetTag: asset.assetTag, model: asset.model },
         ipAddress: req.ip
+    });
+
+    // Audit Log
+    await logAudit({
+        userId: req.user?._id || data.createdBy || "System",
+        action: 'CREATE',
+        resourceType: 'Asset',
+        resourceId: asset._id,
+        newValues: asset.toObject(),
+        req
     });
 
     sendSuccess(res, asset, "Asset created successfully", 201);
@@ -170,6 +181,17 @@ export const updateAsset = asyncHandler(async (req, res) => {
         ipAddress: req.ip
     });
 
+    // Audit Log
+    await logAudit({
+        userId: req.user?._id || "System",
+        action: 'UPDATE',
+        resourceType: 'Asset',
+        resourceId: asset._id,
+        oldValues: existing.toObject(),
+        newValues: asset.toObject(),
+        req
+    });
+
     sendSuccess(res, asset, "Asset updated successfully");
 });
 
@@ -191,6 +213,16 @@ export const deleteAsset = asyncHandler(async (req, res) => {
         targetId: existing._id,
         details: { assetTag: existing.assetTag },
         ipAddress: req.ip
+    });
+
+    // Audit Log
+    await logAudit({
+        userId: req.user?._id || "System",
+        action: 'DELETE',
+        resourceType: 'Asset',
+        resourceId: existing._id,
+        oldValues: existing.toObject(),
+        req
     });
 
     // Clean up image from disk / Cloudinary

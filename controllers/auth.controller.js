@@ -1,5 +1,7 @@
 import User from "../models/User.js";
 import jwt from "jsonwebtoken";
+import { logAudit } from "../utils/auditLogger.js";
+import asyncHandler from "../utils/asyncHandler.js";
 
 // Helper to create JWT
 const generateToken = (id) => {
@@ -76,6 +78,16 @@ export const login = async (req, res) => {
                 { new: true }
             );
 
+            // Audit Log: Success
+            await logAudit({
+                userId: updatedUser._id,
+                action: 'LOGIN',
+                resourceType: 'User',
+                resourceId: updatedUser._id,
+                newValues: { lastLogin: updatedUser.lastLogin },
+                req
+            });
+
             res.json({
                 _id: updatedUser._id,
                 email: updatedUser.email,
@@ -84,6 +96,15 @@ export const login = async (req, res) => {
                 token: generateToken(updatedUser._id),
             });
         } else {
+            // Audit Log: Failure
+            await logAudit({
+                action: 'LOGIN',
+                resourceType: 'User',
+                status: 'FAILURE',
+                errorMessage: 'Invalid email or password',
+                newValues: { email },
+                req
+            });
             res.status(401).json({ message: "Invalid email or password" });
         }
     } catch (error) {
@@ -144,3 +165,20 @@ export const updateProfile = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
+/**
+ * @desc    Logout user
+ * @route   POST /api/auth/logout
+ * @access  Private
+ */
+export const logout = asyncHandler(async (req, res) => {
+    // Audit Log: Success
+    await logAudit({
+        userId: req.user?._id,
+        action: 'LOGOUT',
+        resourceType: 'User',
+        resourceId: req.user?._id,
+        req
+    });
+
+    res.json({ message: "Logged out successfully" });
+});
