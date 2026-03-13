@@ -47,14 +47,14 @@ const vendorSchema = new mongoose.Schema({
     userId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",
-        required: true,
-        index: true
+        required: true
     }
 }, {
     timestamps: true
 });
 
-// Index for search
+// Indexes
 vendorSchema.index({ vendorName: "text" });
+vendorSchema.index({ userId: 1 });
 
 export default mongoose.model("Vendor", vendorSchema);
