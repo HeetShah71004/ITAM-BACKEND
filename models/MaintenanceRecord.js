@@ -70,6 +70,12 @@ const maintenanceRecordSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      index: true,
+    },
   },
   {
     timestamps: true,
@@ -82,5 +88,6 @@ maintenanceRecordSchema.index({ assetId: 1 });
 maintenanceRecordSchema.index({ vendorId: 1 });
 maintenanceRecordSchema.index({ status: 1 });
 maintenanceRecordSchema.index({ startDate: 1 });
+maintenanceRecordSchema.index({ userId: 1 });
 
 export default mongoose.model("MaintenanceRecord", maintenanceRecordSchema);

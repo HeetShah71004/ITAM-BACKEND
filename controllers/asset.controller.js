@@ -31,12 +31,13 @@ const stripEmptyFields = (data) => {
 
 
 // Helper: find asset by MongoDB _id OR custom assetTag (e.g. "AST001")
-const findAssetByIdOrAssetTag = async (identifier) => {
+const findAssetByIdOrAssetTag = async (identifier, userId = null) => {
+    const query = userId ? { userId } : {};
     if (mongoose.Types.ObjectId.isValid(identifier)) {
-        const asset = await Asset.findById(identifier);
+        const asset = await Asset.findOne({ _id: identifier, ...query });
         if (asset) return asset;
     }
-    return Asset.findOne({ assetTag: identifier.toUpperCase() });
+    return Asset.findOne({ assetTag: identifier.toUpperCase(), ...query });
 };
 
 // Helper: returns true if the URL is already stored in our system (Cloudinary or local uploads/)
@@ -60,6 +61,9 @@ export const createAsset = asyncHandler(async (req, res) => {
         data.imageUrl = await uploadImageFromUrl(data.imageUrl.trim(), "assets");
     }
 
+    // Set owner
+    data.userId = req.user._id;
+
     const asset = await Asset.create(data);
 
     // Generate QR Code
@@ -73,7 +77,7 @@ export const createAsset = asyncHandler(async (req, res) => {
 
     // Activity Log
     await logActivity({
-        userId: req.user?._id || data.createdBy || "System", // Assuming req.user is populated by auth middleware
+        userId: req.user._id, // req.user is populated by auth middleware
         action: "CREATE_ASSET",
         targetType: "Asset",
         targetId: asset._id,
@@ -90,14 +94,17 @@ export const createAsset = asyncHandler(async (req, res) => {
 export const getAllAssets = asyncHandler(async (req, res) => {
     let query = {};
 
-    // Permission Matrix: Employee can only view their own assets
+    // Permission Matrix: Employee can only view their own assigned assets
     if (req.user && req.user.role === "Employee") {
-        const employee = await Employee.findOne({ email: req.user.email });
+        const employee = await Employee.findOne({ email: req.user.email, userId: req.user._id });
         if (employee) {
             query.currentAssignedTo = employee._id;
         } else {
             return sendSuccess(res, [], "No assets assigned to your employee profile");
         }
+    } else {
+        // Manager/Admin can only see assets they own/created
+        query.userId = req.user._id;
     }
 
     const assets = await Asset.find(query).sort({ updatedAt: -1 }).populate("currentAssignedTo", "firstName lastName employeeId");
@@ -107,7 +114,7 @@ export const getAllAssets = asyncHandler(async (req, res) => {
 // @desc    Get asset by ID
 // @route   GET /api/assets/:id  (accepts _id or assetTag)
 export const getAssetById = asyncHandler(async (req, res) => {
-    const asset = await findAssetByIdOrAssetTag(req.params.id);
+    const asset = await findAssetByIdOrAssetTag(req.params.id, req.user._id);
     if (!asset) {
         return sendError(res, "Asset not found", 404);
     }
@@ -118,7 +125,7 @@ export const getAssetById = asyncHandler(async (req, res) => {
 // @desc    Update asset
 // @route   PUT /api/assets/:id  (accepts _id or assetTag)
 export const updateAsset = asyncHandler(async (req, res) => {
-    const existing = await findAssetByIdOrAssetTag(req.params.id);
+    const existing = await findAssetByIdOrAssetTag(req.params.id, req.user._id);
     if (!existing) {
         return sendError(res, "Asset not found", 404);
     }
@@ -177,7 +184,7 @@ export const updateAsset = asyncHandler(async (req, res) => {
 // @desc    Delete asset (also removes associated image)
 // @route   DELETE /api/assets/:id  (accepts _id or assetTag)
 export const deleteAsset = asyncHandler(async (req, res) => {
-    const existing = await findAssetByIdOrAssetTag(req.params.id);
+    const existing = await findAssetByIdOrAssetTag(req.params.id, req.user._id);
     if (!existing) {
         return sendError(res, "Asset not found", 404);
     }
@@ -218,7 +225,7 @@ export const getMyAssets = asyncHandler(async (req, res) => {
     // currentAssignedTo in Asset.js refers to Employee model (usually).
 
     // Let's find the Employee record for this User
-    const employee = await Employee.findOne({ email: req.user.email });
+    const employee = await Employee.findOne({ email: req.user.email, userId: req.user._id });
 
     if (!employee) {
         return sendSuccess(res, [], "No employee record found for user");
@@ -232,7 +239,7 @@ export const getMyAssets = asyncHandler(async (req, res) => {
 });
 
 export const uploadAssetImageHandler = asyncHandler(async (req, res) => {
-    const asset = await findAssetByIdOrAssetTag(req.params.id);
+    const asset = await findAssetByIdOrAssetTag(req.params.id, req.user._id);
     if (!asset) {
         return sendError(res, "Asset not found", 404);
     }
@@ -267,7 +274,7 @@ export const uploadAssetImageHandler = asyncHandler(async (req, res) => {
 // @desc    Regenerate QR code
 // @route   POST /api/assets/:id/generate-qr
 export const regenerateQRCode = asyncHandler(async (req, res) => {
-    const asset = await findAssetByIdOrAssetTag(req.params.id);
+    const asset = await findAssetByIdOrAssetTag(req.params.id, req.user._id);
     if (!asset) {
         return sendError(res, "Asset not found", 404);
     }

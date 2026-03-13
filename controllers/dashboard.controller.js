@@ -9,8 +9,9 @@ import { sendSuccess } from "../utils/responseHandler.js";
 // @route   GET /api/dashboard/stats
 export const getDashboardStats = asyncHandler(async (req, res) => {
     // Asset Statistics
-    const totalAssets = await Asset.countDocuments();
+    const totalAssets = await Asset.countDocuments({ userId: req.user._id });
     const assetsByStatus = await Asset.aggregate([
+        { $match: { userId: req.user._id } },
         {
             $group: {
                 _id: "$status",
@@ -20,6 +21,7 @@ export const getDashboardStats = asyncHandler(async (req, res) => {
     ]);
 
     const assetsByCategory = await Asset.aggregate([
+        { $match: { userId: req.user._id } },
         {
             $group: {
                 _id: "$category",
@@ -32,13 +34,13 @@ export const getDashboardStats = asyncHandler(async (req, res) => {
     ]);
 
     // Employee Statistics
-    const totalEmployees = await Employee.countDocuments();
-    const activeEmployees = await Employee.countDocuments({ status: "Active" });
-    const inactiveEmployees = await Employee.countDocuments({ status: "Inactive" });
+    const totalEmployees = await Employee.countDocuments({ userId: req.user._id });
+    const activeEmployees = await Employee.countDocuments({ status: "Active", userId: req.user._id });
+    const inactiveEmployees = await Employee.countDocuments({ status: "Inactive", userId: req.user._id });
 
     const employeesByDepartment = await Employee.aggregate([
         {
-            $match: { status: "Active" }
+            $match: { status: "Active", userId: req.user._id }
         },
         {
             $group: {
@@ -52,12 +54,12 @@ export const getDashboardStats = asyncHandler(async (req, res) => {
     ]);
 
     // Assignment Statistics
-    const totalAssignments = await AssignmentHistory.countDocuments();
-    const activeAssignments = await AssignmentHistory.countDocuments({ returnedDate: null });
-    const returnedAssignments = await AssignmentHistory.countDocuments({ returnedDate: { $ne: null } });
+    const totalAssignments = await AssignmentHistory.countDocuments({ userId: req.user._id });
+    const activeAssignments = await AssignmentHistory.countDocuments({ returnedDate: null, userId: req.user._id });
+    const returnedAssignments = await AssignmentHistory.countDocuments({ returnedDate: { $ne: null }, userId: req.user._id });
 
     // Recent Assignments (last 5)
-    const recentAssignments = await AssignmentHistory.find()
+    const recentAssignments = await AssignmentHistory.find({ userId: req.user._id })
         .populate("asset", "assetTag name category")
         .populate("employee", "employeeId firstName lastName")
         .sort({ assignedDate: -1 })
@@ -68,6 +70,7 @@ export const getDashboardStats = asyncHandler(async (req, res) => {
     thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
 
     const upcomingWarrantyExpiry = await Asset.find({
+        userId: req.user._id,
         warrantyExpiry: {
             $gte: new Date(),
             $lte: thirtyDaysFromNow
@@ -76,6 +79,7 @@ export const getDashboardStats = asyncHandler(async (req, res) => {
 
     // Total asset value
     const assetValueStats = await Asset.aggregate([
+        { $match: { userId: req.user._id } },
         {
             $group: {
                 _id: null,
@@ -152,8 +156,8 @@ export const getDashboardStats = asyncHandler(async (req, res) => {
 // @desc    Get asset utilization rate
 // @route   GET /api/dashboard/utilization
 export const getAssetUtilization = asyncHandler(async (req, res) => {
-    const totalAssets = await Asset.countDocuments();
-    const assignedAssets = await Asset.countDocuments({ status: "Assigned" });
+    const totalAssets = await Asset.countDocuments({ userId: req.user._id });
+    const assignedAssets = await Asset.countDocuments({ status: "Assigned", userId: req.user._id });
 
     const utilizationRate = totalAssets > 0
         ? ((assignedAssets / totalAssets) * 100).toFixed(2)
@@ -178,6 +182,7 @@ export const getAssignmentTrends = asyncHandler(async (req, res) => {
     const trends = await AssignmentHistory.aggregate([
         {
             $match: {
+                userId: req.user._id,
                 assignedDate: { $gte: sixMonthsAgo }
             }
         },

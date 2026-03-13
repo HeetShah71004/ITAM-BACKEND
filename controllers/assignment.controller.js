@@ -37,7 +37,7 @@ export const assignAsset = asyncHandler(async (req, res) => {
 
     try {
         // Check if asset exists and is available
-        const asset = await Asset.findById(assetId).session(session);
+        const asset = await Asset.findOne({ _id: assetId, userId: req.user._id }).session(session);
         if (!asset) {
             await session.abortTransaction();
             return sendError(res, "Asset not found", 404);
@@ -55,11 +55,11 @@ export const assignAsset = asyncHandler(async (req, res) => {
         // Check if employee exists and is active
         let employeeDoc = null;
         if (mongoose.Types.ObjectId.isValid(employeeIdentifier)) {
-            employeeDoc = await Employee.findById(employeeIdentifier).session(session);
+            employeeDoc = await Employee.findOne({ _id: employeeIdentifier, userId: req.user._id }).session(session);
         }
 
         if (!employeeDoc) {
-            employeeDoc = await Employee.findOne({ employeeId: employeeIdentifier }).session(session);
+            employeeDoc = await Employee.findOne({ employeeId: employeeIdentifier, userId: req.user._id }).session(session);
         }
 
         if (!employeeDoc) {
@@ -91,6 +91,7 @@ export const assignAsset = asyncHandler(async (req, res) => {
                     employee: employeeMongoId,
                     assignedBy: assignedBy || "System",
                     notes: notes || "",
+                    userId: req.user._id,
                 },
             ],
             { session }
@@ -100,9 +101,10 @@ export const assignAsset = asyncHandler(async (req, res) => {
         await session.commitTransaction();
 
         // Populate the assignment history for response
-        const populatedAssignment = await AssignmentHistory.findById(
-            assignmentHistory[0]._id
-        )
+        const populatedAssignment = await AssignmentHistory.findOne({
+            _id: assignmentHistory[0]._id,
+            userId: req.user._id
+        })
             .populate("asset", "assetTag name category brand model")
             .populate("employee", "employeeId firstName lastName email department");
 
@@ -114,14 +116,14 @@ export const assignAsset = asyncHandler(async (req, res) => {
         );
 
         // Must await on Vercel to ensure completion
-        if (emp?.email) {
+        if (employeeDoc?.email) {
             await sendEmail(
-                emp.email,
+                employeeDoc.email,
                 "Asset Assignment Confirmation – ITAM",
                 assignmentEmailTemplate({
-                    employeeName: `${emp.firstName} ${emp.lastName}`,
-                    assetName: ast.name,
-                    assetTag: ast.assetTag,
+                    employeeName: `${employeeDoc.firstName} ${employeeDoc.lastName}`,
+                    assetName: asset.name,
+                    assetTag: asset.assetTag,
                     assignedDate: populatedAssignment.assignedDate,
                 })
             );
@@ -151,7 +153,7 @@ export const returnAsset = asyncHandler(async (req, res) => {
 
     try {
         // Check if asset exists and is assigned
-        const asset = await Asset.findById(assetId).session(session);
+        const asset = await Asset.findOne({ _id: assetId, userId: req.user._id }).session(session);
         if (!asset) {
             await session.abortTransaction();
             return sendError(res, "Asset not found", 404);
@@ -170,6 +172,7 @@ export const returnAsset = asyncHandler(async (req, res) => {
         const activeAssignment = await AssignmentHistory.findOne({
             asset: assetId,
             returnedDate: null,
+            userId: req.user._id,
         }).session(session);
 
         if (!activeAssignment) {
@@ -197,23 +200,24 @@ export const returnAsset = asyncHandler(async (req, res) => {
         await session.commitTransaction();
 
         // Populate the assignment history for response
-        const populatedAssignment = await AssignmentHistory.findById(
-            activeAssignment._id
-        )
+        const populatedAssignment = await AssignmentHistory.findOne({
+            _id: activeAssignment._id,
+            userId: req.user._id
+        })
             .populate("asset", "assetTag name category brand model status")
             .populate("employee", "employeeId firstName lastName email department");
 
         sendSuccess(res, populatedAssignment, "Asset returned successfully", 200);
 
         // Must await on Vercel to ensure completion
-        if (emp2?.email) {
+        if (populatedAssignment.employee?.email) {
             await sendEmail(
-                emp2.email,
+                populatedAssignment.employee.email,
                 "Asset Return Confirmation – ITAM",
                 returnEmailTemplate({
-                    employeeName: `${emp2.firstName} ${emp2.lastName}`,
-                    assetName: ast2.name,
-                    assetTag: ast2.assetTag,
+                    employeeName: `${populatedAssignment.employee.firstName} ${populatedAssignment.employee.lastName}`,
+                    assetName: populatedAssignment.asset.name,
+                    assetTag: populatedAssignment.asset.assetTag,
                     returnedDate: populatedAssignment.returnedDate,
                 })
             );
@@ -237,6 +241,9 @@ export const getAllAssignments = asyncHandler(async (req, res) => {
     } else if (status === "returned") {
         filter.returnedDate = { $ne: null };
     }
+    
+    // Ownership check
+    filter.userId = req.user._id;
 
     const assignments = await AssignmentHistory.find(filter)
         .populate("asset", "assetTag name category brand model status")
@@ -257,12 +264,12 @@ export const getAssetAssignmentHistory = asyncHandler(async (req, res) => {
     const { assetId } = req.params;
 
     // Validate asset exists
-    const asset = await Asset.findById(assetId);
+    const asset = await Asset.findOne({ _id: assetId, userId: req.user._id });
     if (!asset) {
         return sendError(res, "Asset not found", 404);
     }
 
-    const assignments = await AssignmentHistory.find({ asset: assetId })
+    const assignments = await AssignmentHistory.find({ asset: assetId, userId: req.user._id })
         .populate("employee", "employeeId firstName lastName email department")
         .sort({ assignedDate: -1 });
 
@@ -289,12 +296,12 @@ export const getEmployeeAssignmentHistory = asyncHandler(async (req, res) => {
     const { employeeId } = req.params;
 
     // Validate employee exists
-    const employee = await Employee.findById(employeeId);
+    const employee = await Employee.findOne({ _id: employeeId, userId: req.user._id });
     if (!employee) {
         return sendError(res, "Employee not found", 404);
     }
 
-    const assignments = await AssignmentHistory.find({ employee: employeeId })
+    const assignments = await AssignmentHistory.find({ employee: employeeId, userId: req.user._id })
         .populate("asset", "assetTag name category brand model status")
         .sort({ assignedDate: -1 });
 

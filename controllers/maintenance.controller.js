@@ -24,7 +24,7 @@ export const createMaintenance = asyncHandler(async (req, res) => {
     } = req.body;
 
     // Validate asset existence
-    const asset = await Asset.findById(assetId);
+    const asset = await Asset.findOne({ _id: assetId, userId: req.user._id });
     if (!asset) {
         return sendError(res, "Asset not found", 404);
     }
@@ -35,6 +35,7 @@ export const createMaintenance = asyncHandler(async (req, res) => {
         issueDescription,
         maintenanceType,
         reportedBy: req.user._id,
+        userId: req.user._id,
         startDate,
         endDate,
         serviceCost,
@@ -71,6 +72,7 @@ export const getAllMaintenance = asyncHandler(async (req, res) => {
 
     if (status) query.status = status;
     if (assetId) query.assetId = assetId;
+    query.userId = req.user._id;
 
     const records = await MaintenanceRecord.find(query)
         .populate("assetId", "assetTag name category")
@@ -87,7 +89,7 @@ export const getAllMaintenance = asyncHandler(async (req, res) => {
  * @access  Private
  */
 export const getMaintenanceByAsset = asyncHandler(async (req, res) => {
-    const records = await MaintenanceRecord.find({ assetId: req.params.assetId })
+    const records = await MaintenanceRecord.find({ assetId: req.params.assetId, userId: req.user._id })
         .populate("vendorId", "vendorName")
         .populate("reportedBy", "firstName lastName")
         .sort({ startDate: -1 });
@@ -101,7 +103,7 @@ export const getMaintenanceByAsset = asyncHandler(async (req, res) => {
  * @access  Private (Admin, Manager)
  */
 export const updateMaintenance = asyncHandler(async (req, res) => {
-    let record = await MaintenanceRecord.findById(req.params.id);
+    let record = await MaintenanceRecord.findOne({ _id: req.params.id, userId: req.user._id });
 
     if (!record) {
         return sendError(res, "Maintenance record not found", 404);
@@ -120,14 +122,18 @@ export const updateMaintenance = asyncHandler(async (req, res) => {
         }
     }
 
-    record = await MaintenanceRecord.findByIdAndUpdate(req.params.id, updateData, {
-        new: true,
-        runValidators: true
-    });
+    record = await MaintenanceRecord.findOneAndUpdate(
+        { _id: req.params.id, userId: req.user._id },
+        updateData,
+        {
+            new: true,
+            runValidators: true
+        }
+    );
 
     // If status changed to Completed, we might want to update asset status back to Available
     if (updateData.status === "Completed") {
-        const asset = await Asset.findById(record.assetId);
+        const asset = await Asset.findOne({ _id: record.assetId, userId: req.user._id });
         if (asset && asset.status === "Under Repair") {
             asset.status = "Available";
             await asset.save();
@@ -152,13 +158,13 @@ export const updateMaintenance = asyncHandler(async (req, res) => {
  * @access  Private (Admin)
  */
 export const deleteMaintenance = asyncHandler(async (req, res) => {
-    const record = await MaintenanceRecord.findById(req.params.id);
+    const record = await MaintenanceRecord.findOne({ _id: req.params.id, userId: req.user._id });
 
     if (!record) {
         return sendError(res, "Maintenance record not found", 404);
     }
 
-    await MaintenanceRecord.findByIdAndDelete(req.params.id);
+    await MaintenanceRecord.findOneAndDelete({ _id: req.params.id, userId: req.user._id });
 
     await logActivity({
         userId: req.user._id,

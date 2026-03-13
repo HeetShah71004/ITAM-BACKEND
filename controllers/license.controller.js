@@ -7,12 +7,13 @@ import { sendSuccess, sendError } from "../utils/responseHandler.js";
 import { logActivity } from "../utils/activityLogger.js";
 
 
-const findEmployeeByIdOrEmployeeId = async (identifier) => {
+const findEmployeeByIdOrEmployeeId = async (identifier, userId = null) => {
+    const query = userId ? { userId } : {};
     if (mongoose.Types.ObjectId.isValid(identifier)) {
-        const emp = await Employee.findById(identifier);
+        const emp = await Employee.findOne({ _id: identifier, ...query });
         if (emp) return emp;
     }
-    return Employee.findOne({ employeeId: identifier });
+    return Employee.findOne({ employeeId: identifier, ...query });
 };
 
 // @desc    Create a new software license
@@ -22,6 +23,9 @@ export const createLicense = asyncHandler(async (req, res) => {
     if (req.body.vendor === "" || req.body.vendor === null) {
         delete req.body.vendor;
     }
+
+    // Set owner
+    req.body.userId = req.user._id;
 
     const license = await SoftwareLicense.create(req.body);
 
@@ -50,14 +54,17 @@ export const getAllLicenses = asyncHandler(async (req, res) => {
     if (category) filter.category = category;
     if (platform) filter.platform = platform;
 
-    // Permission Matrix: Employee can only view their own licenses
+    // Permission Matrix: Employee can only view their own assigned licenses
     if (req.user && req.user.role === "Employee") {
-        const employee = await Employee.findOne({ email: req.user.email });
+        const employee = await Employee.findOne({ email: req.user.email, userId: req.user._id });
         if (employee) {
             filter["assignedTo.employee"] = employee._id;
         } else {
             return sendSuccess(res, [], "No licenses assigned to your employee profile");
         }
+    } else {
+        // Manager/Admin can only see licenses they own/created
+        filter.userId = req.user._id;
     }
 
     const licenses = await SoftwareLicense.find(filter)
@@ -70,7 +77,7 @@ export const getAllLicenses = asyncHandler(async (req, res) => {
 // @desc    Get a single software license by ID
 // @route   GET /api/licenses/:id
 export const getLicenseById = asyncHandler(async (req, res) => {
-    const license = await SoftwareLicense.findById(req.params.id).populate(
+    const license = await SoftwareLicense.findOne({ _id: req.params.id, userId: req.user._id }).populate(
         "assignedTo.employee",
         "employeeId firstName lastName email department"
     );
@@ -92,8 +99,8 @@ export const updateLicense = asyncHandler(async (req, res) => {
         allowedUpdates.vendor = null;
     }
 
-    const license = await SoftwareLicense.findByIdAndUpdate(
-        req.params.id,
+    const license = await SoftwareLicense.findOneAndUpdate(
+        { _id: req.params.id, userId: req.user._id },
         allowedUpdates,
         { new: true, runValidators: true }
     ).populate("assignedTo.employee", "employeeId firstName lastName email department");
@@ -119,7 +126,7 @@ export const updateLicense = asyncHandler(async (req, res) => {
 // @desc    Delete a software license
 // @route   DELETE /api/licenses/:id
 export const deleteLicense = asyncHandler(async (req, res) => {
-    const license = await SoftwareLicense.findById(req.params.id);
+    const license = await SoftwareLicense.findOne({ _id: req.params.id, userId: req.user._id });
 
     if (!license) {
         return sendError(res, "Software license not found", 404);
@@ -133,7 +140,7 @@ export const deleteLicense = asyncHandler(async (req, res) => {
         );
     }
 
-    await SoftwareLicense.findByIdAndDelete(req.params.id);
+    await SoftwareLicense.findOneAndDelete({ _id: req.params.id, userId: req.user._id });
 
     // Activity Log
     await logActivity({
@@ -164,7 +171,7 @@ export const assignLicense = asyncHandler(async (req, res) => {
     }
 
     // Validate license exists
-    const license = await SoftwareLicense.findById(licenseId);
+    const license = await SoftwareLicense.findOne({ _id: licenseId, userId: req.user._id });
     if (!license) {
         return sendError(res, "Software license not found", 404);
     }
@@ -194,7 +201,7 @@ export const assignLicense = asyncHandler(async (req, res) => {
 
     // Validate employee exists and is active
     // Supports both MongoDB _id and custom employeeId string (e.g. "EMP007")
-    const employeeDoc = await findEmployeeByIdOrEmployeeId(employeeId);
+    const employeeDoc = await findEmployeeByIdOrEmployeeId(employeeId, req.user._id);
     if (!employeeDoc) {
         return sendError(res, "Employee not found", 404);
     }
@@ -246,7 +253,7 @@ export const assignLicense = asyncHandler(async (req, res) => {
     });
 
     // Return populated document
-    const populated = await SoftwareLicense.findById(license._id).populate(
+    const populated = await SoftwareLicense.findOne({ _id: license._id, userId: req.user._id }).populate(
         "assignedTo.employee",
         "employeeId firstName lastName email department"
     );
@@ -266,12 +273,12 @@ export const revokeLicense = asyncHandler(async (req, res) => {
     }
 
     // Validate license exists
-    const license = await SoftwareLicense.findById(licenseId);
+    const license = await SoftwareLicense.findOne({ _id: licenseId, userId: req.user._id });
     if (!license) {
         return sendError(res, "Software license not found", 404);
     }
 
-    const employeeDoc = await findEmployeeByIdOrEmployeeId(employeeId);
+    const employeeDoc = await findEmployeeByIdOrEmployeeId(employeeId, req.user._id);
     if (!employeeDoc) {
         return sendError(res, "Employee not found", 404);
     }
@@ -310,7 +317,7 @@ export const revokeLicense = asyncHandler(async (req, res) => {
     });
 
     // Return populated document
-    const populated = await SoftwareLicense.findById(license._id).populate(
+    const populated = await SoftwareLicense.findOne({ _id: license._id, userId: req.user._id }).populate(
         "assignedTo.employee",
         "employeeId firstName lastName email department"
     );
@@ -336,6 +343,7 @@ export const getExpiringLicenses = asyncHandler(async (req, res) => {
     const threshold = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
 
     const licenses = await SoftwareLicense.find({
+        userId: req.user._id,
         expiryDate: { $gte: now, $lte: threshold },
         status: "Active",
     })
@@ -363,7 +371,7 @@ export const getLicenseCompliance = asyncHandler(async (req, res) => {
     const soonThreshold = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
 
     // Fetch all licenses (no pagination – compliance is a full audit)
-    const all = await SoftwareLicense.find({}).populate(
+    const all = await SoftwareLicense.find({ userId: req.user._id }).populate(
         "assignedTo.employee",
         "employeeId firstName lastName email department"
     );

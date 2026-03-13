@@ -29,7 +29,7 @@ export const createVendor = asyncHandler(async (req, res) => {
         servicesProvided,
         rating,
         status,
-        createdBy: req.user._id
+        userId: req.user._id
     });
 
     await logActivity({
@@ -54,7 +54,8 @@ export const getVendors = asyncHandler(async (req, res) => {
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
 
-    const query = {};
+    // Manager/Admin can only see vendors they own/created
+    query.userId = req.user._id;
 
     // Filter by status
     if (req.query.status) {
@@ -67,7 +68,7 @@ export const getVendors = asyncHandler(async (req, res) => {
     }
 
     const vendors = await Vendor.find(query)
-        .populate("createdBy", "firstName lastName email")
+        .populate("userId", "firstName lastName email")
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit);
@@ -93,15 +94,15 @@ import SoftwareLicense from "../models/SoftwareLicense.js";
  * @access  Private
  */
 export const getVendorById = asyncHandler(async (req, res) => {
-    const vendor = await Vendor.findById(req.params.id).populate("createdBy", "firstName lastName email");
+    const vendor = await Vendor.findOne({ _id: req.params.id, userId: req.user._id }).populate("userId", "firstName lastName email");
 
     if (!vendor) {
         return sendError(res, "Vendor not found", 404);
     }
 
-    // Fetch purchase history (Assets and Licenses)
-    const assets = await Asset.find({ vendor: vendor._id }).populate("currentAssignedTo", "firstName lastName");
-    const licenses = await SoftwareLicense.find({ vendor: vendor._id });
+    // Fetch purchase history (Assets and Licenses) - filtered by userId for isolation
+    const assets = await Asset.find({ vendor: vendor._id, userId: req.user._id }).populate("currentAssignedTo", "firstName lastName");
+    const licenses = await SoftwareLicense.find({ vendor: vendor._id, userId: req.user._id });
 
     return sendSuccess(res, { vendor, purchaseHistory: { assets, licenses } }, "Vendor retrieved successfully");
 });
@@ -112,16 +113,20 @@ export const getVendorById = asyncHandler(async (req, res) => {
  * @access  Private (Admin, Manager)
  */
 export const updateVendor = asyncHandler(async (req, res) => {
-    let vendor = await Vendor.findById(req.params.id);
+    let vendor = await Vendor.findOne({ _id: req.params.id, userId: req.user._id });
 
     if (!vendor) {
         return sendError(res, "Vendor not found", 404);
     }
 
-    vendor = await Vendor.findByIdAndUpdate(req.params.id, req.body, {
-        new: true,
-        runValidators: true
-    });
+    vendor = await Vendor.findOneAndUpdate(
+        { _id: req.params.id, userId: req.user._id },
+        req.body,
+        {
+            new: true,
+            runValidators: true
+        }
+    );
 
     await logActivity({
         userId: req.user._id,
@@ -141,7 +146,7 @@ export const updateVendor = asyncHandler(async (req, res) => {
  * @access  Private (Admin)
  */
 export const deleteVendor = asyncHandler(async (req, res) => {
-    const vendor = await Vendor.findById(req.params.id);
+    const vendor = await Vendor.findOne({ _id: req.params.id, userId: req.user._id });
 
     if (!vendor) {
         return sendError(res, "Vendor not found", 404);

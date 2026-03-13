@@ -7,12 +7,13 @@ import { deleteEmployeeImage, uploadImageFromUrl } from "../middleware/upload.mi
 import { logActivity } from "../utils/activityLogger.js";
 
 
-const findEmployeeByIdOrEmployeeId = async (identifier) => {
+const findEmployeeByIdOrEmployeeId = async (identifier, userId = null) => {
+    const query = userId ? { userId } : {};
     if (mongoose.Types.ObjectId.isValid(identifier)) {
-        const employee = await Employee.findById(identifier);
+        const employee = await Employee.findOne({ _id: identifier, ...query });
         if (employee) return employee;
     }
-    return Employee.findOne({ employeeId: identifier });
+    return Employee.findOne({ employeeId: identifier, ...query });
 };
 
 // Helper: strip empty-string values so Mongoose doesn't try to cast "" to Number/Date
@@ -38,11 +39,14 @@ export const createEmployee = asyncHandler(async (req, res) => {
         data.profileImage = await uploadImageFromUrl(data.profileImage.trim(), "employees");
     }
 
+    // Set owner
+    data.userId = req.user._id;
+
     const employee = await Employee.create(data);
 
     // Activity Log
     await logActivity({
-        userId: req.user?._id || "System",
+        userId: req.user._id,
         action: "CREATE_EMPLOYEE",
         targetType: "Employee",
         targetId: employee._id,
@@ -57,14 +61,14 @@ export const createEmployee = asyncHandler(async (req, res) => {
 // @desc    Get all employees
 // @route   GET /api/employees
 export const getAllEmployees = asyncHandler(async (req, res) => {
-    const employees = await Employee.find().sort({ updatedAt: -1 });
+    const employees = await Employee.find({ userId: req.user._id }).sort({ updatedAt: -1 });
     sendSuccess(res, employees, "Employees retrieved successfully");
 });
 
 // @desc    Get employee by ID
 // @route   GET /api/employees/:id  (accepts _id or employeeId)
 export const getEmployeeById = asyncHandler(async (req, res) => {
-    const employee = await findEmployeeByIdOrEmployeeId(req.params.id);
+    const employee = await findEmployeeByIdOrEmployeeId(req.params.id, req.user._id);
     if (!employee) {
         return sendError(res, "Employee not found", 404);
     }
@@ -84,7 +88,7 @@ const isAlreadyStoredUrl = (url) => {
 // @desc    Update employee
 // @route   PUT /api/employees/:id  (accepts _id or employeeId)
 export const updateEmployee = asyncHandler(async (req, res) => {
-    const existing = await findEmployeeByIdOrEmployeeId(req.params.id);
+    const existing = await findEmployeeByIdOrEmployeeId(req.params.id, req.user._id);
     if (!existing) {
         return sendError(res, "Employee not found", 404);
     }
@@ -137,7 +141,7 @@ export const updateEmployee = asyncHandler(async (req, res) => {
 // @desc    Delete employee (also removes associated profile image)
 // @route   DELETE /api/employees/:id  (accepts _id or employeeId)
 export const deleteEmployee = asyncHandler(async (req, res) => {
-    const existing = await findEmployeeByIdOrEmployeeId(req.params.id);
+    const existing = await findEmployeeByIdOrEmployeeId(req.params.id, req.user._id);
     if (!existing) {
         return sendError(res, "Employee not found", 404);
     }
@@ -164,7 +168,7 @@ export const deleteEmployee = asyncHandler(async (req, res) => {
 // @desc    Upload / replace employee profile image
 // @route   POST /api/employees/:id/image
 export const uploadEmployeeImageHandler = asyncHandler(async (req, res) => {
-    const employee = await findEmployeeByIdOrEmployeeId(req.params.id);
+    const employee = await findEmployeeByIdOrEmployeeId(req.params.id, req.user._id);
     if (!employee) {
         return sendError(res, "Employee not found", 404);
     }

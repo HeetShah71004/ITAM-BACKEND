@@ -174,6 +174,12 @@ const softwareLicenseSchema = new mongoose.Schema(
             trim: true,
             maxlength: [500, "Notes cannot exceed 500 characters"],
         },
+        userId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+            required: true,
+            index: true,
+        },
     },
     { timestamps: true }
 );
@@ -183,6 +189,7 @@ softwareLicenseSchema.index({ softwareName: 1 });
 softwareLicenseSchema.index({ status: 1 });
 softwareLicenseSchema.index({ expiryDate: 1 });
 softwareLicenseSchema.index({ licenseType: 1 });
+softwareLicenseSchema.index({ userId: 1 });
 softwareLicenseSchema.index({ "assignedTo.employee": 1 });
 
 // ── Virtuals ─────────────────────────────────────────────────────────────────

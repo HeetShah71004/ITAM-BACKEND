@@ -111,6 +111,12 @@ const employeeSchema = new mongoose.Schema(
       trim: true,
       default: null,
     },
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      index: true,
+    },
   },
   { timestamps: true }
 );
@@ -119,6 +125,7 @@ const employeeSchema = new mongoose.Schema(
 // Note: employeeId and email unique indexes are already created via schema field definitions
 employeeSchema.index({ status: 1 });
 employeeSchema.index({ department: 1 });
+employeeSchema.index({ userId: 1 });
 
 // Virtual field for full name
 employeeSchema.virtual("fullName").get(function () {

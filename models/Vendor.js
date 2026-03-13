@@ -44,10 +44,11 @@ const vendorSchema = new mongoose.Schema({
         enum: ["Active", "Inactive"],
         default: "Active"
     },
-    createdBy: {
+    userId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",
-        required: true
+        required: true,
+        index: true
     }
 }, {
     timestamps: true

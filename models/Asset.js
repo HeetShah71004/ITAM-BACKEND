@@ -144,6 +144,12 @@ const assetSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      index: true,
+    },
   },
   { timestamps: true }
 );
@@ -152,6 +158,7 @@ const assetSchema = new mongoose.Schema(
 assetSchema.index({ status: 1 });
 assetSchema.index({ category: 1 });
 assetSchema.index({ currentAssignedTo: 1 });
+assetSchema.index({ userId: 1 });
 // Note: assetTag unique index is already created via schema field definition
 
 // Virtual field for warranty status

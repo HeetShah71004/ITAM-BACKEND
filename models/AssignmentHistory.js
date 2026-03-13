@@ -80,6 +80,12 @@ const assignmentHistorySchema = new mongoose.Schema(
       trim: true,
       maxlength: [500, "Notes cannot exceed 500 characters"],
     },
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      index: true,
+    },
   },
   { timestamps: true }
 );
@@ -90,6 +96,7 @@ assignmentHistorySchema.index({ employee: 1 });
 assignmentHistorySchema.index({ assignedDate: -1 });
 assignmentHistorySchema.index({ returnedDate: 1 });
 assignmentHistorySchema.index({ asset: 1, employee: 1 });
+assignmentHistorySchema.index({ userId: 1 });
 
 // Virtual field to check if assignment is active
 assignmentHistorySchema.virtual("isActive").get(function () {
