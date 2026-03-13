@@ -56,6 +56,78 @@ export const sendEmail = async (to, subject, html) => {
 };
 
 // ---------------------------------------------------------------------------
+// OTP Email – used by signup / resend-otp flow
+// ---------------------------------------------------------------------------
+
+/**
+ * Send a 6-digit OTP verification email to the user.
+ * @param {string} to   - recipient email address
+ * @param {string} otp  - 6-digit OTP code
+ */
+export const sendOtpEmail = async (to, otp) => {
+  const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Email Verification</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f6f9;font-family:'Segoe UI',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f9;padding:40px 0;">
+    <tr>
+      <td align="center">
+        <table width="480" cellpadding="0" cellspacing="0"
+               style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,0.10);">
+
+          <!-- Header -->
+          <tr>
+            <td style="background:linear-gradient(135deg,#1a73e8,#0d47a1);padding:32px 40px;text-align:center;">
+              <h1 style="color:#ffffff;margin:0;font-size:22px;font-weight:700;">Verify Your Email</h1>
+              <p style="color:#bbdefb;margin:8px 0 0;font-size:13px;">IT Asset Management System</p>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding:36px 40px;text-align:center;">
+              <p style="font-size:15px;color:#555;margin:0 0 24px;line-height:1.7;">
+                Use the verification code below to confirm your email address.
+                This code is valid for <strong>10 minutes</strong>.
+              </p>
+
+              <!-- OTP Box -->
+              <div style="display:inline-block;background:#f0f4ff;border:2px dashed #1a73e8;border-radius:10px;padding:20px 40px;margin:0 auto 24px;">
+                <span style="font-size:38px;font-weight:800;letter-spacing:12px;color:#1a73e8;font-family:monospace;">${otp}</span>
+              </div>
+
+              <p style="font-size:13px;color:#999;margin:0;line-height:1.7;">
+                If you did not request this, please ignore this email.
+                Your account will not be created.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background:#f8f9fb;padding:20px 40px;text-align:center;border-top:1px solid #e8edf3;">
+              <p style="font-size:12px;color:#aaa;margin:0;">
+                &copy; ${new Date().getFullYear()} IT Asset Management System &middot; Automated Notification
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+`;
+  await sendEmail(to, "Your Email Verification Code – ITAM", html);
+};
+
+// ---------------------------------------------------------------------------
 // HTML Email Templates
 // ---------------------------------------------------------------------------
 
