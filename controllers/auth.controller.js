@@ -19,7 +19,7 @@ const generateOtp = () => Math.floor(100000 + Math.random() * 900000).toString()
  */
 export const signup = async (req, res) => {
     try {
-        const { name, email, password } = req.body;
+        const { name, email, password, role } = req.body;
 
         if (!name || !email || !password) {
             return res.status(400).json({ message: "Please provide name, email, and password." });
@@ -38,6 +38,7 @@ export const signup = async (req, res) => {
             // Re-use existing unverified account – just refresh OTP
             existingUser.fullName = name;
             existingUser.password = password;
+            existingUser.role = role || 'Employee';
             existingUser.verificationCode = otp;
             existingUser.verificationCodeExpires = otpExpires;
             await existingUser.save();
@@ -47,6 +48,7 @@ export const signup = async (req, res) => {
                 fullName: name,
                 email,
                 password,
+                role: role || 'Employee',
                 isVerified: false,
                 verificationCode: otp,
                 verificationCodeExpires: otpExpires,
