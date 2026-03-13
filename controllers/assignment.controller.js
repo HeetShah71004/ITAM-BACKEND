@@ -113,11 +113,9 @@ export const assignAsset = asyncHandler(async (req, res) => {
             201
         );
 
-        // Fire-and-forget assignment confirmation email
-        const emp = populatedAssignment.employee;
-        const ast = populatedAssignment.asset;
+        // Must await on Vercel to ensure completion
         if (emp?.email) {
-            sendEmail(
+            await sendEmail(
                 emp.email,
                 "Asset Assignment Confirmation – ITAM",
                 assignmentEmailTemplate({
@@ -207,11 +205,9 @@ export const returnAsset = asyncHandler(async (req, res) => {
 
         sendSuccess(res, populatedAssignment, "Asset returned successfully", 200);
 
-        // Fire-and-forget return confirmation email
-        const emp2 = populatedAssignment.employee;
-        const ast2 = populatedAssignment.asset;
+        // Must await on Vercel to ensure completion
         if (emp2?.email) {
-            sendEmail(
+            await sendEmail(
                 emp2.email,
                 "Asset Return Confirmation – ITAM",
                 returnEmailTemplate({

@@ -55,8 +55,8 @@ export const signup = async (req, res) => {
             });
         }
 
-        // Send OTP email (non-blocking for faster response)
-        sendOtpEmail(email, otp);
+        // Send OTP email (MUST be awaited on Vercel to ensure completion)
+        await sendOtpEmail(email, otp);
 
         res.status(201).json({ message: "Verification code sent to email." });
     } catch (error) {
@@ -135,8 +135,8 @@ export const resendOtp = async (req, res) => {
         user.verificationCodeExpires = new Date(Date.now() + 10 * 60 * 1000);
         await user.save();
 
-        // Fire-and-forget email sending
-        sendOtpEmail(email, otp);
+        // Must await for the email to send before exiting on serverless
+        await sendOtpEmail(email, otp);
 
         res.json({ message: "Verification code resent to email." });
     } catch (error) {

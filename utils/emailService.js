@@ -14,17 +14,25 @@ function getTransporter() {
     const user = process.env.EMAIL_USER;
     const pass = process.env.EMAIL_PASS;
 
+    console.log(`[Email] Initialising transporter...`);
+    console.log(`        Service: ${service || "not set"}`);
+    console.log(`        User   : ${user ? (user.slice(0, 3) + "****" + user.slice(-3)) : "not set"}`);
+    console.log(`        Pass   : ${pass ? "******** (length: " + pass.length + ")" : "not set"}`);
+
     if (!user || !pass) {
-      console.error("[Email] EMAIL_USER or EMAIL_PASS is not set in .env");
+      console.error("[Email] ❌ EMAIL_USER or EMAIL_PASS is not set in environment variables");
+      return null;
     }
 
     transporter = nodemailer.createTransport({
-      service,          // e.g. "gmail" from EMAIL_SERVICE in .env
+      service: service || "gmail",
       auth: { user, pass },
       tls: { rejectUnauthorized: false },
+      connectionTimeout: 10000, // 10 seconds
+      greetingTimeout: 10000,
     });
 
-    console.log(`[Email] Transporter initialised (service=${service}, user=${user})`);
+    console.log(`[Email] ✅ Transporter initialised`);
   }
   return transporter;
 }
