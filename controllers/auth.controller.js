@@ -55,8 +55,8 @@ export const signup = async (req, res) => {
             });
         }
 
-        // Send OTP email (non-blocking — failure won't crash the response)
-        await sendOtpEmail(email, otp);
+        // Send OTP email (non-blocking for faster response)
+        sendOtpEmail(email, otp);
 
         res.status(201).json({ message: "Verification code sent to email." });
     } catch (error) {
@@ -135,7 +135,8 @@ export const resendOtp = async (req, res) => {
         user.verificationCodeExpires = new Date(Date.now() + 10 * 60 * 1000);
         await user.save();
 
-        await sendOtpEmail(email, otp);
+        // Fire-and-forget email sending
+        sendOtpEmail(email, otp);
 
         res.json({ message: "Verification code resent to email." });
     } catch (error) {

@@ -37,20 +37,29 @@ function getTransporter() {
 // ---------------------------------------------------------------------------
 export const sendEmail = async (to, subject, html) => {
   try {
-    console.log(`[Email] Attempting to send "${subject}" → ${to}`);
+    const transporter = getTransporter();
+    if (!transporter) {
+      console.error(`[Email] ❌ Skipping send to ${to}: Transporter not initialised.`);
+      return;
+    }
 
-    const info = await getTransporter().sendMail({
+    console.log(`[Email] 📤 Sending "${subject}" → ${to}`);
+    const startTime = Date.now();
+
+    const info = await transporter.sendMail({
       from: `"ITAM System" <${process.env.EMAIL_USER}>`,
-      to,       // employee.email fetched from DB – never hardcoded
+      to,
       subject,
       html,
     });
 
-    console.log(`[Email] ✅ Sent to ${to} | Message ID: ${info.messageId}`);
+    const duration = Date.now() - startTime;
+    console.log(`[Email] ✅ Delivered to ${to} in ${duration}ms | Message ID: ${info.messageId}`);
   } catch (error) {
     console.error(`[Email] ❌ Failed to send to ${to}`);
-    console.error(`        Code   : ${error.code || "unknown"}`);
-    console.error(`        Message: ${error.message || "unknown"}`);
+    console.error(`        Error   : ${error.name || "Error"}`);
+    console.error(`        Message : ${error.message || "unknown"}`);
+    console.error(`        Stack   : ${error.stack}`);
     // NOT re-throwing – email failure must not affect the API response
   }
 };
