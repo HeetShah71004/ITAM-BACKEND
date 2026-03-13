@@ -23,10 +23,11 @@ const dateRangeFilter = (startDate, endDate) => {
  * Returns an array of plain asset objects safe for CSV export.
  * Supported filters: status, category, startDate, endDate
  */
-export const getAssetsForExport = async (filters = {}) => {
+export const getAssetsForExport = async (filters = {}, userId = null) => {
     const { status, category, startDate, endDate } = filters;
 
     const query = { ...dateRangeFilter(startDate, endDate) };
+    if (userId) query.userId = userId;
     if (status) query.status = status;
     if (category) query.category = category;
 
@@ -74,10 +75,11 @@ export const ASSET_FIELDS = [
  * Supported filters: department, status, startDate, endDate
  * NOTE: password and profileImage (internal URL) are intentionally excluded.
  */
-export const getEmployeesForExport = async (filters = {}) => {
+export const getEmployeesForExport = async (filters = {}, userId = null) => {
     const { department, status, startDate, endDate } = filters;
 
     const query = { ...dateRangeFilter(startDate, endDate) };
+    if (userId) query.userId = userId;
     if (department) query.department = department;
     if (status) query.status = status;
 
@@ -115,10 +117,11 @@ export const EMPLOYEE_FIELDS = [
  * NOTE: licenseKey is included since it is a business identifier, not a secret.
  *       assignedTo sub-array is flattened to a comma-separated count.
  */
-export const getLicensesForExport = async (filters = {}) => {
+export const getLicensesForExport = async (filters = {}, userId = null) => {
     const { status, licenseType, startDate, endDate } = filters;
 
     const query = { ...dateRangeFilter(startDate, endDate) };
+    if (userId) query.userId = userId;
     if (status) query.status = status;
     if (licenseType) query.licenseType = licenseType;
 

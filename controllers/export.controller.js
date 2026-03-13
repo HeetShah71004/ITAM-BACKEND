@@ -54,7 +54,7 @@ export const exportData = async (req, res) => {
         }
 
         const filters = { status, category, licenseType, department, startDate, endDate };
-        const data = await config.fetcher(filters);
+        const data = await config.fetcher(filters, req.user?._id);
         const csv = convertToCSV(data, config.fields);
 
         res.header("Content-Type", "text/csv; charset=utf-8");

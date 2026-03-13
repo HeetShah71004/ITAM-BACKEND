@@ -8,8 +8,12 @@ import { sendSuccess } from "../utils/responseHandler.js";
 // @desc    Get dashboard statistics
 // @route   GET /api/dashboard/stats
 export const getDashboardStats = asyncHandler(async (req, res) => {
+    console.log(`[Dashboard] Fetching stats for user: ${req.user?._id} (${req.user?.email})`);
+    
     // Asset Statistics
     const totalAssets = await Asset.countDocuments({ userId: req.user._id });
+    console.log(`[Dashboard] Total assets found: ${totalAssets}`);
+
     const assetsByStatus = await Asset.aggregate([
         { $match: { userId: req.user._id } },
         {
