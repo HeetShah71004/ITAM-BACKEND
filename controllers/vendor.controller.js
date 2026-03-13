@@ -54,11 +54,12 @@ export const getVendors = asyncHandler(async (req, res) => {
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
 
+    const query = {};
     // Manager/Admin can only see vendors they own/created
     query.userId = req.user._id;
 
     // Filter by status
-    if (req.query.status) {
+    if (req.query.status && req.query.status !== "All") {
         query.status = req.query.status;
     }
 

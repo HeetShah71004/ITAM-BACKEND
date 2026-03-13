@@ -6,6 +6,7 @@ import AssignmentHistory from "../models/AssignmentHistory.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import { sendSuccess, sendError } from "../utils/responseHandler.js";
 import { sendEmail, assignmentEmailTemplate, returnEmailTemplate } from "../utils/emailService.js";
+import { logActivity } from "../utils/activityLogger.js";
 
 // @desc    Assign an asset to an employee
 // @route   POST /api/assignments/assign
@@ -99,6 +100,20 @@ export const assignAsset = asyncHandler(async (req, res) => {
 
         // Commit the transaction
         await session.commitTransaction();
+
+        // Activity Log
+        await logActivity({
+            userId: req.user._id,
+            action: "ASSIGN_ASSET",
+            targetType: "AssignmentHistory",
+            targetId: assignmentHistory[0]._id,
+            details: {
+                assetTag: asset.assetTag,
+                employeeId: employeeDoc.employeeId,
+                employeeName: `${employeeDoc.firstName} ${employeeDoc.lastName}`
+            },
+            ipAddress: req.ip
+        });
 
         // Populate the assignment history for response
         const populatedAssignment = await AssignmentHistory.findOne({
@@ -198,6 +213,19 @@ export const returnAsset = asyncHandler(async (req, res) => {
 
         // Commit the transaction
         await session.commitTransaction();
+
+        // Activity Log
+        await logActivity({
+            userId: req.user._id,
+            action: "RETURN_ASSET",
+            targetType: "AssignmentHistory",
+            targetId: activeAssignment._id,
+            details: {
+                assetTag: asset.assetTag,
+                returnCondition: returnCondition || "Available"
+            },
+            ipAddress: req.ip
+        });
 
         // Populate the assignment history for response
         const populatedAssignment = await AssignmentHistory.findOne({
